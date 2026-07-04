@@ -1,6 +1,7 @@
 'use strict';
 
 const express      = require('express');
+const fs           = require('fs').promises;
 const router       = express.Router();
 const storage      = require('../utils/candidate-storage');
 const resumeParser = require('../utils/resume-parser');
@@ -99,6 +100,10 @@ router.post('/create-profile', async (req, res) => {
       } catch (parseErr) {
         console.error('Resume parsing failed:', parseErr);
         return res.status(400).json({ error: `Resume parsing failed: ${parseErr.message}` });
+      } finally {
+        // Multer writes the upload to disk under uploads/ — only the extracted
+        // text is needed after this point, so remove the temp file either way.
+        await fs.unlink(req.file.path).catch(() => {});
       }
     }
 
