@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Create Your Profile — Applicant Agent</title>
+  <link rel="stylesheet" href="/styles.css"/>
+</head>
+<body>
+<div class="container">
+
+  <div class="page-header">
+    <h1>🚀 Create Your AI Representative</h1>
+    <p>Upload your resume once. Share one link. Your AI agent handles every recruiter conversation and negotiates on your behalf — 24/7.</p>
+  </div>
+
+  <!-- ── Global error alert ── -->
+  <div class="alert alert-error" id="globalError" role="alert"></div>
+
+  <!-- ═══════════════ FORM ═══════════════ -->
+  <form id="form-section" novalidate
+        onsubmit="event.preventDefault(); submitProfile()">
+
+    <!-- Resume upload -->
+    <div class="card">
+      <div class="card-title">Resume <span class="req" aria-hidden="true">*</span></div>
+      <div class="form-group">
+        <div class="upload-zone" id="dropZone" role="button" tabindex="0"
+             aria-label="Upload resume — click or drag a PDF or DOCX file here"
+             onclick="document.getElementById('fileInput').click()"
+             onkeydown="if(event.key==='Enter'||event.key===' ')document.getElementById('fileInput').click()">
+          <div class="uz-icon">📄</div>
+          <div class="uz-file" id="fileName">Drop your resume here or click to browse</div>
+          <div class="uz-hint">PDF or DOCX · Max 10 MB</div>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf,.doc,.docx" aria-label="Resume file"/>
+        <div class="form-error" id="err-resume" role="alert"></div>
+      </div>
+    </div>
+
+    <!-- Personal info -->
+    <div class="card">
+      <div class="card-title">Personal Info</div>
+
+      <div class="form-group">
+        <label for="name">Full Name <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="name" placeholder="Alex Johnson" autocomplete="name"/>
+        <div class="form-error" id="err-name" role="alert"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email <span class="req" aria-hidden="true">*</span></label>
+        <input type="email" id="email" placeholder="alex@example.com" autocomplete="email"/>
+        <div class="form-error" id="err-email" role="alert"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="location">Location <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="location" placeholder="New York, NY" autocomplete="address-level2"/>
+        <div class="form-error" id="err-location" role="alert"></div>
+      </div>
+    </div>
+
+    <!-- Career targets -->
+    <div class="card">
+      <div class="card-title">Career Targets</div>
+
+      <div class="form-group">
+        <label for="roles">Target Roles <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="roles" placeholder="Senior PM, Product Lead, Director of Product"/>
+        <div class="form-hint">Separate multiple roles with commas</div>
+        <div class="form-error" id="err-roles" role="alert"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Target Salary Range <span class="req" aria-hidden="true">*</span></label>
+        <div class="row-2">
+          <div>
+            <label for="salaryMin" style="font-weight:400;color:var(--gray-500)">Minimum ($)</label>
+            <input type="number" id="salaryMin" placeholder="150000" min="0"/>
+          </div>
+          <div>
+            <label for="salaryMax" style="font-weight:400;color:var(--gray-500)">Maximum ($)</label>
+            <input type="number" id="salaryMax" placeholder="180000" min="0"/>
+          </div>
+        </div>
+        <div class="form-error" id="err-salary" role="alert"></div>
+      </div>
+    </div>
+
+    <!-- Non-negotiables -->
+    <div class="card">
+      <div class="card-title">Non-Negotiables <span class="req" aria-hidden="true">*</span></div>
+      <p style="font-size:.85rem;color:var(--gray-500);margin-bottom:14px">
+        Your AI agent will firmly hold these lines in every conversation.
+        Select all that apply.
+      </p>
+
+      <div class="form-group">
+        <div class="checkbox-grid" id="nnGrid">
+          <label class="check-item">
+            <input type="checkbox" class="nn-checkbox" data-label="Remote only"/>
+            <span>Remote only</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" class="nn-checkbox" data-label="Growth opportunity"/>
+            <span>Growth opportunity</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" class="nn-checkbox" data-label="Specific salary floor"/>
+            <span>Specific salary floor</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" class="nn-checkbox" data-label="Mentorship from senior leader"/>
+            <span>Mentorship from senior</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" class="nn-checkbox" data-label="Small team"/>
+            <span>Small team</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" class="nn-checkbox" data-label="Equity / stock options"/>
+            <span>Equity / stock options</span>
+          </label>
+        </div>
+
+        <label for="customNn" style="margin-top:4px">Custom non-negotiable</label>
+        <input type="text" id="customNn" placeholder="e.g. 4-day work week" aria-label="Custom non-negotiable"/>
+        <div class="form-error" id="err-nonneg" role="alert"></div>
+      </div>
+    </div>
+
+    <div class="spinner" id="spinner" aria-live="polite">Creating your profile…</div>
+
+    <button type="submit" class="button-primary btn-full" id="submitBtn">
+      Create My Profile
+    </button>
+
+  </form><!-- /form-section -->
+
+  <!-- ═══════════════ SUCCESS SCREEN ═══════════════ -->
+  <div id="result" class="form-success">
+
+    <div class="success-card">
+      <div class="success-icon">🎉</div>
+      <h2>Your Profile is Live!</h2>
+      <p class="sub">Share this link with recruiters. Your AI representative is ready to negotiate.</p>
+
+      <div class="url-row">
+        <span id="shareableUrl"></span>
+        <button class="button-primary" onclick="copyUrl()" id="copyBtn" aria-label="Copy shareable URL">Copy</button>
+      </div>
+
+      <div class="action-row">
+        <a class="button-primary" id="linkedInBtn" href="#" target="_blank" rel="noopener"
+           aria-label="Share on LinkedIn">
+          Share on LinkedIn
+        </a>
+        <button class="button-secondary" onclick="goToDashboard()">
+          View Dashboard
+        </button>
+      </div>
+
+      <!-- LinkedIn post copy block -->
+      <div class="linkedin-block">
+        <label>Ready-to-paste LinkedIn post</label>
+        <textarea id="linkedInText" readonly aria-label="LinkedIn post text"></textarea>
+        <button class="button-secondary copy-post-btn" onclick="copyPost()" id="copyPostBtn">
+          Copy Post Text
+        </button>
+      </div>
+
+      <!-- Recruiter preview -->
+      <div class="preview-card" id="previewCard">
+        <h3>How recruiters will see you</h3>
+        <div class="preview-name" id="previewName"></div>
+        <div class="preview-meta" id="previewMeta"></div>
+        <div class="preview-pills" id="previewPills"></div>
+      </div>
+
+      <p style="font-size:.78rem;color:var(--gray-400);margin-top:16px">
+        Your Candidate ID: <strong id="candidateIdDisplay"></strong>
+      </p>
+    </div>
+
+  </div><!-- /result -->
+
+</div><!-- /container -->
+
+<script src="/profile.js"></script>
+</body>
+</html>

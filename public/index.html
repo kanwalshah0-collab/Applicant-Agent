@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>AI Candidate Representative</title>
+  <link rel="stylesheet" href="/styles.css"/>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;background:#f0fdf4;color:#1a1a1a;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+    .card{background:#fff;border-radius:18px;padding:48px 44px;max-width:480px;width:100%;box-shadow:0 2px 20px rgba(0,0,0,.09);text-align:center}
+    .logo{font-size:2.4rem;margin-bottom:14px}
+    h1{font-size:2rem;font-weight:800;margin-bottom:8px;color:#0f766e}
+    .tagline{color:#6b7280;font-size:1rem;margin-bottom:36px;line-height:1.6}
+    .btn{display:block;width:100%;padding:14px;border-radius:12px;border:none;font-size:1rem;font-weight:600;cursor:pointer;text-decoration:none;margin-bottom:12px;transition:opacity .15s,transform .1s}
+    .btn:hover{opacity:.88;transform:translateY(-1px)}
+    .btn-primary{background:#0d9488;color:#fff}
+    .btn-secondary{background:#f0fdf4;color:#0f766e;border:1.5px solid #99f6e4}
+    .divider{height:1px;background:#f0f0f0;margin:28px 0}
+    .status{display:flex;align-items:center;justify-content:center;gap:8px;font-size:.85rem;color:#6b7280}
+    .status-dot{width:9px;height:9px;border-radius:50%;background:#9ca3af}
+    .status-dot.online{background:#16a34a}
+    .status-dot.offline{background:#dc2626}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🎯</div>
+    <h1>AI Candidate Representative</h1>
+    <p class="tagline">Upload your resume once. Get a link.<br>Let AI negotiate on your behalf — 24/7.</p>
+    <a class="btn btn-primary" href="/create-profile.html">Create Your Profile</a>
+    <a class="btn btn-secondary" href="/dashboard/">Sign In to Dashboard</a>
+    <div class="divider"></div>
+    <div class="status">
+      <span id="status-dot" class="status-dot"></span>
+      <span id="status-text">Checking service status…</span>
+    </div>
+  </div>
+
+  <script>
+    fetch('/health')
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(() => {
+        document.getElementById('status-dot').classList.add('online');
+        document.getElementById('status-text').textContent = 'Service online';
+      })
+      .catch(() => {
+        document.getElementById('status-dot').classList.add('offline');
+        document.getElementById('status-text').textContent = 'Service unavailable';
+      });
+  </script>
+</body>
+</html>

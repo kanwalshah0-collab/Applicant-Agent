@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Career Dashboard — Applicant Agent</title>
+  <link rel="stylesheet" href="/styles.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { background: #f0f2f5; min-height: 100vh; }
+
+    /* ── Nav ── */
+    .dashboard-nav {
+      background: #fff; border-bottom: 1px solid var(--gray-100);
+      padding: 0 24px; height: 58px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 200;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .dashboard-nav h1 { font-size: 1.05rem; font-weight: 700; color: var(--teal-600); margin: 0; }
+    .nav-right { display: flex; align-items: center; gap: 14px; }
+    .nav-name  { font-size: .82rem; color: var(--gray-500); }
+    .logout    { font-size: .83rem; color: var(--gray-500); text-decoration: none; padding: 6px 12px; border-radius: 8px; transition: all .15s; }
+    .logout:hover { background: var(--gray-100); color: var(--gray-700); }
+
+    /* ── Container ── */
+    .container { max-width: 1100px; padding: 24px 20px 60px; }
+
+    /* ── Tab bar ── */
+    .tab-bar {
+      display: flex; gap: 2px; background: #fff; border-radius: 12px;
+      padding: 4px; margin-bottom: 22px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+      overflow-x: auto; scrollbar-width: none;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      flex: 1; min-width: 90px; padding: 8px 14px;
+      border: none; background: transparent; border-radius: 8px;
+      cursor: pointer; font-size: .83rem; font-weight: 500; color: var(--gray-500);
+      transition: all .15s; white-space: nowrap;
+    }
+    .tab-btn.active { background: var(--teal-600); color: #fff; }
+    .tab-btn:hover:not(.active) { background: var(--gray-50); color: var(--gray-700); }
+
+    /* ── Dash card ── */
+    .dash-card {
+      background: #fff; border-radius: 14px; padding: 22px 24px;
+      box-shadow: 0 1px 5px rgba(0,0,0,.07); margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: .76rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--teal-600); margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    /* ── Stats row ── */
+    .stats-row {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px; margin-bottom: 16px;
+    }
+    .stat-card { background: #fff; border-radius: 12px; padding: 16px 18px; box-shadow: 0 1px 5px rgba(0,0,0,.07); }
+    .stat-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--gray-400); margin-bottom: 8px; }
+    .stat-value { font-size: 1.65rem; font-weight: 800; color: var(--gray-900); line-height: 1; }
+    .stat-sub   { font-size: .75rem; color: var(--gray-500); margin-top: 5px; line-height: 1.3; }
+    .stat-card.hi .stat-value { color: var(--teal-600); }
+
+    /* ── Profile display ── */
+    .profile-name { font-size: 1.35rem; font-weight: 700; color: var(--gray-900); margin-bottom: 3px; }
+    .profile-meta { font-size: .87rem; color: var(--gray-500); margin-bottom: 12px; }
+    .avail-badge  { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 3px 12px; font-size: .75rem; font-weight: 600; }
+    .avail--open         { background: #dcfce7; color: #166534; }
+    .avail--interviewing { background: #dbeafe; color: #1e40af; }
+    .avail--closed       { background: var(--gray-100); color: var(--gray-500); }
+    .profile-role-pills  { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+
+    /* ── URL bar ── */
+    .url-bar {
+      display: flex; align-items: center; gap: 8px; background: var(--gray-50);
+      border: 1px solid var(--gray-200); border-radius: 9px; padding: 8px 12px;
+      margin: 12px 0; font-size: .82rem; color: var(--gray-600); overflow: hidden;
+    }
+    .url-bar span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Action buttons ── */
+    .action-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .btn-sm { padding: 7px 14px; border-radius: 9px; border: none; font-size: .82rem; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+    .btn-sm:hover:not(:disabled) { opacity: .82; }
+    .btn-sm:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-primary-sm   { background: var(--teal-600); color: #fff; }
+    .btn-secondary-sm { background: var(--gray-100); color: var(--gray-700); border: 1px solid var(--gray-200); }
+    .btn-danger-sm    { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+    /* ── Status badges ── */
+    .s-badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: .73rem; font-weight: 600; }
+    .s--visiting    { background: #f0f2f5; color: var(--gray-500); }
+    .s--mentioned   { background: #fef9c3; color: #92400e; }
+    .s--offered     { background: #dbeafe; color: #1e40af; }
+    .s--negotiating { background: #ede9fe; color: #6b21a8; }
+    .s--accepted    { background: #dcfce7; color: #166534; }
+    .s--declined    { background: #fee2e2; color: #991b1b; }
+
+    /* ── Table ── */
+    .table-controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+    .search-input { flex: 1; min-width: 180px; padding: 8px 13px; border: 1.5px solid var(--gray-200); border-radius: 9px; font-size: .84rem; outline: none; }
+    .search-input:focus { border-color: var(--teal-500); }
+    .filter-sel { padding: 8px 11px; border: 1.5px solid var(--gray-200); border-radius: 9px; font-size: .82rem; outline: none; background: #fff; color: var(--gray-700); cursor: pointer; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    th {
+      text-align: left; padding: 9px 13px; font-size: .72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .05em; color: var(--gray-400);
+      border-bottom: 2px solid var(--gray-100); white-space: nowrap;
+      cursor: pointer; user-select: none;
+    }
+    th:hover { color: var(--gray-700); }
+    td { padding: 10px 13px; border-bottom: 1px solid var(--gray-50); color: var(--gray-700); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--gray-50); }
+    .sa { display: inline; opacity: .35; margin-left: 3px; font-size: .8em; }
+    .sa.on { opacity: 1; color: var(--teal-600); }
+
+    /* ── Offer cards ── */
+    .offers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+    .offer-card {
+      border-radius: 12px; padding: 18px 20px;
+      border: 1px solid var(--gray-200); border-left-width: 4px; border-left-color: var(--gray-300);
+    }
+    .offer-card.accepted    { border-left-color: #22c55e; }
+    .offer-card.negotiating { border-left-color: #8b5cf6; }
+    .offer-card.offered     { border-left-color: #3b82f6; }
+    .offer-card.mentioned   { border-left-color: #f59e0b; }
+    .offer-card.declined    { border-left-color: #ef4444; }
+    .offer-company { font-size: 1rem; font-weight: 700; color: var(--gray-900); margin-bottom: 3px; }
+    .offer-date    { font-size: .77rem; color: var(--gray-400); margin-bottom: 12px; }
+    .offer-target  { font-size: .87rem; color: var(--gray-600); margin-bottom: 10px; }
+    .offer-footer  { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--gray-100); display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ── Edit form ── */
+    .frow       { margin-bottom: 15px; }
+    .frow label { display: block; font-size: .82rem; font-weight: 600; color: var(--gray-700); margin-bottom: 5px; }
+    .frow input,
+    .frow select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-200); border-radius: 9px; font-size: .87rem; outline: none; transition: border-color .15s; }
+    .frow input:focus, .frow select:focus { border-color: var(--teal-500); }
+    .frow .hint { font-size: .74rem; color: var(--gray-400); margin-top: 4px; }
+    .sal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .frow .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-bottom: 10px; }
+    .frow .check-item { display: flex; align-items: center; gap: 7px; font-size: .84rem; cursor: pointer; }
+
+    /* ── Alert ── */
+    .alert { padding: 10px 14px; border-radius: 9px; font-size: .84rem; margin-bottom: 14px; display: none; }
+    .alert.visible { display: block; }
+    .alert-ok  { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .alert-err { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(3px);
+      z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #fff; border-radius: 18px; box-shadow: 0 24px 64px rgba(0,0,0,.18);
+      max-width: 700px; width: 100%; max-height: 90vh; overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .modal-head {
+      padding: 20px 24px 16px; border-bottom: 1px solid var(--gray-100);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .modal-head h2 { font-size: 1rem; font-weight: 700; color: var(--gray-900); margin: 0; }
+    .modal-x { background: var(--gray-100); border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 1rem; cursor: pointer; color: var(--gray-500); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .modal-x:hover { background: var(--gray-200); }
+    .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+    .modal-foot { padding: 14px 24px; border-top: 1px solid var(--gray-100); display: flex; gap: 10px; justify-content: flex-end; flex-shrink: 0; }
+
+    /* ── Transcript messages ── */
+    .tx-meta { font-size: .78rem; color: var(--gray-400); margin-bottom: 16px; }
+    .tx-list  { display: flex; flex-direction: column; gap: 8px; }
+    .tx-msg   { padding: 9px 14px; border-radius: 14px; font-size: .87rem; line-height: 1.5; max-width: 82%; }
+    .tx-msg.agent     { background: var(--gray-50); align-self: flex-start; border-bottom-left-radius: 3px; }
+    .tx-msg.recruiter { background: var(--teal-600); color: #fff; align-self: flex-end; border-bottom-right-radius: 3px; }
+    .tx-time   { font-size: .69rem; color: var(--gray-400); margin-top: 3px; }
+    .tx-time.r { text-align: right; }
+
+    /* ── Login ── */
+    .login-wrap { max-width: 420px; margin: 80px auto; padding: 0 20px; }
+    .login-card { background: #fff; border-radius: 18px; padding: 40px 34px; box-shadow: 0 2px 20px rgba(0,0,0,.09); text-align: center; }
+    .login-icon { font-size: 2.4rem; margin-bottom: 14px; }
+    .login-card h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; color: var(--gray-900); }
+    .login-card p  { color: var(--gray-500); font-size: .88rem; margin-bottom: 22px; }
+    .login-pw { width: 100%; padding: 11px 16px; border: 1.5px solid var(--gray-200); border-radius: 10px; font-size: 1rem; outline: none; margin-bottom: 11px; text-align: center; letter-spacing: .08em; }
+    .login-pw:focus { border-color: var(--teal-500); }
+    .login-err { color: #dc2626; font-size: .82rem; margin-bottom: 10px; min-height: 1.2em; }
+
+    /* ── Loading / empty ── */
+    .loading-wrap { text-align: center; padding: 70px 20px; }
+    .spinner { display: inline-block; width: 34px; height: 34px; border: 3px solid var(--gray-200); border-top-color: var(--teal-600); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 14px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-wrap { text-align: center; padding: 40px 20px; color: var(--gray-400); }
+    .empty-icon { font-size: 2.4rem; margin-bottom: 10px; }
+    .empty-wrap p { font-size: .88rem; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .container { padding: 14px 12px 60px; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .offers-grid { grid-template-columns: 1fr; }
+      .sal-row { grid-template-columns: 1fr; }
+      .tab-btn { font-size: .76rem; padding: 7px 10px; }
+      .modal { max-height: 95vh; border-radius: 12px; }
+    }
+
+    /* ── Print ── */
+    @media print {
+      .dashboard-nav, .tab-bar, .modal-foot, .action-row,
+      .offer-footer, .table-controls { display: none !important; }
+      body { background: #fff; }
+      .dash-card, .stat-card, .offer-card { box-shadow: none; border: 1px solid #e5e7eb; }
+      #main-content, .container, #tab-overview { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ NAV ═══ -->
+<nav class="dashboard-nav">
+  <h1>🎯 Career Dashboard</h1>
+  <div class="nav-right">
+    <span class="nav-name" id="nav-name"></span>
+    <a href="/" class="logout" onclick="logout(); return false;">Logout</a>
+  </div>
+</nav>
+
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div id="login-screen" style="display:none">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-icon">🔒</div>
+      <h2>Dashboard Access</h2>
+      <p>Enter your dashboard password to view your career data.</p>
+      <p class="login-err" id="login-err"></p>
+      <input
+        id="login-pw" type="password" class="login-pw"
+        placeholder="Enter password" aria-label="Dashboard password"
+        onkeydown="if(event.key==='Enter')doLogin()"
+      />
+      <button class="button-primary btn-full" onclick="doLogin()">Sign In</button>
+      <p style="font-size:.76rem;color:var(--gray-400);margin-top:16px">
+        Candidate ID: <strong id="login-cid"></strong>
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LOADING SCREEN ═══ -->
+<div id="loading-screen" style="display:none">
+  <div class="loading-wrap">
+    <div class="spinner"></div>
+    <p style="color:var(--gray-400)">Loading your dashboard…</p>
+  </div>
+</div>
+
+<!-- ═══ MAIN CONTENT ═══ -->
+<div id="main-content" style="display:none">
+  <div class="container">
+
+    <!-- Tab bar -->
+    <div class="tab-bar" role="tablist">
+      <button class="tab-btn active" id="tbtn-overview"       onclick="showTab('overview')">📊 Overview</button>
+      <button class="tab-btn"        id="tbtn-conversations"  onclick="showTab('conversations')">💬 Conversations</button>
+      <button class="tab-btn"        id="tbtn-offers"         onclick="showTab('offers')">🤝 Offers</button>
+      <button class="tab-btn"        id="tbtn-profile"        onclick="showTab('profile')">👤 Profile</button>
+      <button class="tab-btn"        id="tbtn-settings"       onclick="showTab('settings')">⚙️ Settings</button>
+    </div>
+
+    <!-- ─── OVERVIEW TAB ─── -->
+    <div id="tab-overview">
+      <div class="stats-row" id="stats-row"></div>
+      <div class="dash-card">
+        <div class="card-title">Your Profile <button class="btn-sm btn-secondary-sm" onclick="showTab('profile')">Edit →</button></div>
+        <div id="profile-summary"></div>
+      </div>
+      <div class="dash-card">
+        <div class="card-title">Recent Conversations <button class="btn-sm btn-secondary-sm" onclick="showTab('conversations')">View All →</button></div>
+        <div id="recent-convs"></div>
+      </div>
+      <div class="dash-card" id="recent-offers-card" style="display:none">
+        <div class="card-title">Recent Offers</div>
+        <div id="recent-offers" class="offers-grid"></div>
+      </div>
+    </div>
+
+    <!-- ─── CONVERSATIONS TAB ─── -->
+    <div id="tab-conversations" style="display:none">
+      <div class="dash-card">
+        <div class="card-title">All Conversations</div>
+        <div class="table-controls">
+          <input
+            type="text" class="search-input" id="conv-search"
+            placeholder="Search by company…"
+            oninput="onSearch(this.value)"
+            aria-label="Search conversations"
+          />
+          <select class="filter-sel" onchange="onFilterStatus(this.value)" aria-label="Filter by status">
+            <option value="all">All Statuses</option>
+            <option value="visiting">Visiting</option>
+            <option value="mentioned">Salary Mentioned</option>
+            <option value="offered">Offered</option>
+            <option value="negotiating">Negotiating</option>
+            <option value="accepted">Accepted</option>
+            <option value="declined">Declined</option>
+          </select>
+          <select class="filter-sel" id="sort-sel" onchange="onSortChange(this.value)" aria-label="Sort by">
+            <option value="lastContact">Sort: Last Contact</option>
+            <option value="firstContact">Sort: First Contact</option>
+            <option value="companyName">Sort: Company Name</option>
+            <option value="messageCount">Sort: # Messages</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th onclick="toggleSort('companyName')">Company <span class="sa" id="sa-companyName">↕</span></th>
+                <th onclick="toggleSort('firstContact')">First Contact <span class="sa" id="sa-firstContact">↕</span></th>
+                <th onclick="toggleSort('lastContact')">Last Contact <span class="sa on" id="sa-lastContact">↓</span></th>
+                <th onclick="toggleSort('messageCount')" style="text-align:center"># Msgs <span class="sa" id="sa-messageCount">↕</span></th>
+                <th>Status</th>
+                <th>Transcript</th>
+              </tr>
+            </thead>
+            <tbody id="conv-tbody"></tbody>
+          </table>
+          <div id="conv-empty" class="empty-wrap" style="display:none">
+            <div class="empty-icon">📭</div><p>No conversations match your filter.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── OFFERS TAB ─── -->
+    <div id="tab-offers" style="display:none">
+      <div class="dash-card">
+        <div class="card-title">Offers &amp; Interest</div>
+        <div id="offers-container"></div>
+      </div>
+    </div>
+
+    <!-- ─── PROFILE TAB ─── -->
+    <div id="tab-profile" style="display:none">
+      <div class="dash-card">
+        <div class="card-title">Current Profile</div>
+        <div id="profile-full"></div>
+      </div>
+      <div class="dash-card">
+        <div class="card-title">Edit Profile</div>
+        <div id="edit-alert" class="alert"></div>
+        <div id="edit-form"></div>
+      </div>
+    </div>
+
+    <!-- ─── SETTINGS TAB ─── -->
+    <div id="tab-settings" style="display:none">
+      <div class="dash-card">
+        <div class="card-title">Account &amp; Settings</div>
+        <div id="settings-body"></div>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+</div><!-- /main-content -->
+
+<!-- ═══ TRANSCRIPT MODAL ═══ -->
+<div class="modal-overlay" id="modal-tx" role="dialog" aria-modal="true" aria-labelledby="tx-title"
+     onclick="closeModal('modal-tx')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <h2 id="tx-title">Conversation Transcript</h2>
+      <button class="modal-x" onclick="closeModal('modal-tx')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="tx-meta" id="tx-meta"></p>
+      <div id="tx-loading" style="display:none" class="loading-wrap">
+        <div class="spinner"></div>
+        <p style="color:var(--gray-400)">Loading transcript…</p>
+      </div>
+      <div class="tx-list" id="tx-msgs"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sm btn-secondary-sm" onclick="window.print()">🖨 Print</button>
+      <button class="btn-sm btn-primary-sm"   onclick="closeModal('modal-tx')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── State ─────────────────────────────────────────────────────────────────────
+var S = {
+  cid: null, password: null,
+  profile: null, convs: [], offers: [],
+  activeTab: 'overview',
+  search: '', sortField: 'lastContact', sortDir: 'desc', filterStatus: 'all',
+};
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+(function boot() {
+  var parts = window.location.pathname.split('/').filter(Boolean);
+  S.cid = parts[1] || null;
+
+  if (!S.cid) {
+    el('login-screen').style.display = 'none';
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('main-content').style.display = 'none';
+    document.body.insertAdjacentHTML('beforeend',
+      '<div id="cid-screen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#f0f2f5">' +
+        '<div class="login-card" style="max-width:400px;width:90%;text-align:center">' +
+          '<div class="login-icon">🎯</div>' +
+          '<h2>Sign In to Dashboard</h2>' +
+          '<p style="color:var(--gray-500);font-size:.88rem;margin-bottom:18px">Enter your candidate ID and password.</p>' +
+          '<p class="login-err" id="cid-err"></p>' +
+          '<input id="cid-input" type="text" class="login-pw" placeholder="Candidate ID (e.g. fa248395)" ' +
+            'onkeydown="if(event.key===\'Enter\')goCid()" style="text-align:left;letter-spacing:normal;margin-bottom:10px"/>' +
+          '<input id="cid-pw" type="password" class="login-pw" placeholder="Password" ' +
+            'onkeydown="if(event.key===\'Enter\')goCid()" style="margin-bottom:10px"/>' +
+          '<button class="button-primary btn-full" onclick="goCid()">Sign In</button>' +
+          '<p style="margin-top:16px"><a href="/" style="font-size:.82rem;color:var(--gray-400)">← Back to Home</a></p>' +
+        '</div>' +
+      '</div>'
+    );
+    window.goCid = function() {
+      var id  = (document.getElementById('cid-input').value || '').trim();
+      var pw  = (document.getElementById('cid-pw').value   || '').trim();
+      var errEl = document.getElementById('cid-err');
+      var btn   = document.querySelector('#cid-screen .button-primary');
+      if (!id) { errEl.textContent = 'Please enter your candidate ID.'; return; }
+      if (!pw) { errEl.textContent = 'Please enter your password.'; return; }
+      errEl.textContent = '';
+      btn.disabled = true; btn.textContent = 'Signing in…';
+      fetch('/api/profile/exists/' + encodeURIComponent(id))
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.exists) {
+            window.location.href = '/dashboard/' + encodeURIComponent(id) + '?password=' + encodeURIComponent(pw);
+          } else {
+            errEl.textContent = 'Candidate ID not found. Please check and try again.';
+            btn.disabled = false; btn.textContent = 'Sign In';
+          }
+        })
+        .catch(function() {
+          errEl.textContent = 'Could not verify ID. Check your connection and try again.';
+          btn.disabled = false; btn.textContent = 'Sign In';
+        });
+    };
+    return;
+  }
+
+  el('login-cid').textContent = S.cid;
+
+  var urlPw = new URLSearchParams(window.location.search).get('password');
+  if (urlPw) {
+    S.password = urlPw;
+    localStorage.setItem('dash_pw_' + S.cid, urlPw);
+    window.history.replaceState({}, '', window.location.pathname);
+  } else {
+    S.password = localStorage.getItem('dash_pw_' + S.cid) || null;
+  }
+
+  if (S.password) { fetchAll(); }
+  else { el('login-screen').style.display = ''; }
+}());
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+function doLogin() {
+  var pw = (el('login-pw').value || '').trim();
+  if (!pw) { txt('login-err', 'Please enter a password.'); return; }
+  txt('login-err', '');
+  S.password = pw;
+  fetchAll();
+}
+
+function logout() {
+  localStorage.removeItem('dash_pw_' + S.cid);
+  S.password = null; S.profile = null; S.convs = []; S.offers = [];
+  el('main-content').style.display = 'none';
+  el('login-pw').value = '';
+  txt('login-err', '');
+  el('login-screen').style.display = '';
+}
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+function apiBase() { return '/api/profile/candidate/' + S.cid; }
+function withPw(url) { return url + (url.indexOf('?') > -1 ? '&' : '?') + 'password=' + encodeURIComponent(S.password); }
+
+function apiFetch(path, opts) {
+  return fetch(withPw(apiBase() + path), opts || {}).then(function(res) {
+    if (res.status === 401 || res.status === 403) {
+      S.password = null;
+      localStorage.removeItem('dash_pw_' + S.cid);
+      el('main-content').style.display   = 'none';
+      el('loading-screen').style.display = 'none';
+      txt('login-err', 'Incorrect password — please try again.');
+      el('login-screen').style.display = '';
+      return Promise.reject({ handled: true });
+    }
+    return res.json().then(function(d) { if (!res.ok) return Promise.reject(d); return d; });
+  });
+}
+
+function fetchAll() {
+  el('login-screen').style.display   = 'none';
+  el('main-content').style.display   = 'none';
+  el('loading-screen').style.display = '';
+
+  Promise.all([apiFetch(''), apiFetch('/conversations'), apiFetch('/offers')])
+    .then(function(r) {
+      S.profile = r[0]; S.convs = r[1] || []; S.offers = r[2] || [];
+      localStorage.setItem('dash_pw_' + S.cid, S.password);
+      el('loading-screen').style.display = 'none';
+      renderAll();
+      el('main-content').style.display = '';
+    })
+    .catch(function(e) {
+      if (e && e.handled) return;
+      el('loading-screen').style.display = 'none';
+      document.body.innerHTML =
+        '<div style="text-align:center;padding:80px 20px;font-family:system-ui">' +
+        '<h2 style="color:#dc2626">Could not load dashboard</h2>' +
+        '<p style="color:#6b7280;margin:12px 0">Check your connection and reload the page.</p>' +
+        '<button onclick="window.location.reload()" style="padding:10px 20px;background:#0d9488;color:#fff;border:none;border-radius:9px;cursor:pointer;font-size:.95rem">Retry</button>' +
+        '</div>';
+    });
+}
+
+// ── Render all ────────────────────────────────────────────────────────────────
+function renderAll() {
+  txt('nav-name', S.profile ? (S.profile.name || '') : '');
+  renderStats();
+  renderProfileSummary();
+  renderRecentConvs();
+  renderRecentOffers();
+  renderConvTable();
+  renderOffers();
+  renderProfileTab();
+  renderSettings();
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats() {
+  var total = S.convs.length;
+  var hot   = ['offered', 'negotiating', 'accepted'];
+  var offerCount = S.convs.filter(function(c) { return hot.indexOf(c.offerStatus) > -1; }).length;
+  var rate  = total > 0 ? Math.round((offerCount / total) * 100) : 0;
+  var avgMs = total > 0 ? Math.round(S.convs.reduce(function(s, c) { return s + (c.messageCount || 0); }, 0) / total) : 0;
+
+  var counts = {};
+  S.convs.forEach(function(c) { if (c.companyName) counts[c.companyName] = (counts[c.companyName] || 0) + 1; });
+  var topCo = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; })[0] || '—';
+
+  html('stats-row', [
+    sCard('Recruiter Visits',   total,             null,              false),
+    sCard('Offers / Interest',  offerCount,        null,              true),
+    sCard('Conversion Rate',    rate + '%',        'offers ÷ visits', true),
+    sCard('Top Company',        topCo,             null,              false),
+    sCard('Avg Messages',       avgMs,             'per conversation',false),
+  ].join(''));
+}
+function sCard(label, val, sub, hi) {
+  return '<div class="stat-card' + (hi ? ' hi' : '') + '">' +
+    '<div class="stat-label">' + esc(label) + '</div>' +
+    '<div class="stat-value">' + esc(String(val)) + '</div>' +
+    (sub ? '<div class="stat-sub">' + esc(sub) + '</div>' : '') +
+    '</div>';
+}
+
+// ── Profile summary card ──────────────────────────────────────────────────────
+function renderProfileSummary() {
+  var p = S.profile; if (!p) return;
+  var avail  = p.availability || 'open';
+  var salStr = fmtSal(p.targetSalary);
+  var roles  = (p.targetRoles || []).slice(0, 4).map(function(r) { return '<span class="pill">' + esc(r) + '</span>'; }).join('');
+  html('profile-summary',
+    '<div class="profile-name">' + esc(p.name || '—') + '</div>' +
+    '<div class="profile-meta">' + esc(p.email || '') + (p.location ? ' · ' + esc(p.location) : '') + '</div>' +
+    '<div style="margin-bottom:12px">' + availBadge(avail) + '</div>' +
+    (salStr ? '<p style="font-size:.85rem;color:var(--gray-600);margin-bottom:10px">Target: <strong>' + esc(salStr) + '</strong></p>' : '') +
+    (roles  ? '<div class="profile-role-pills">' + roles + '</div>' : '') +
+    '<div class="url-bar"><span>' + esc(p.shareableUrl || '') + '</span>' +
+      '<button class="btn-sm btn-secondary-sm" id="ps-copy" onclick="copyLink(\'ps-copy\')">Copy</button>' +
+    '</div>' +
+    '<div class="action-row">' +
+      '<button class="btn-sm btn-primary-sm"   onclick="showTab(\'profile\')">✏️ Edit Profile</button>' +
+      '<button class="btn-sm btn-secondary-sm" onclick="shareLinkedIn()">💼 Share on LinkedIn</button>' +
+      '<button class="btn-sm btn-secondary-sm" onclick="window.print()">🖨 Download PDF</button>' +
+    '</div>'
+  );
+}
+
+// ── Recent conversations (overview) ──────────────────────────────────────────
+function renderRecentConvs() {
+  var recent = S.convs.slice().sort(function(a, b) {
+    return new Date(b.lastContact || 0) - new Date(a.lastContact || 0);
+  }).slice(0, 5);
+  if (!recent.length) {
+    html('recent-convs',
+      '<div class="empty-wrap"><div class="empty-icon">📭</div>' +
+      '<p>No recruiter visits yet. <a href="' + esc((S.profile && S.profile.shareableUrl) || '#') +
+      '" target="_blank" rel="noopener">Share your link</a> to get started!</p></div>'
+    );
+    return;
+  }
+  html('recent-convs',
+    '<div class="table-wrap"><table><thead><tr>' +
+    '<th>Company</th><th>Last Contact</th><th>Msgs</th><th>Status</th><th></th>' +
+    '</tr></thead><tbody>' + recent.map(convRowHtml).join('') + '</tbody></table></div>'
+  );
+}
+
+// ── Recent offers (overview) ──────────────────────────────────────────────────
+function renderRecentOffers() {
+  var card = el('recent-offers-card');
+  if (!S.offers.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  html('recent-offers', S.offers.slice(0, 3).map(offerCardHtml).join(''));
+}
+
+// ── Conversations table ───────────────────────────────────────────────────────
+function renderConvTable() {
+  updateSortArrows();
+  var rows = filteredConvs();
+  var tbody = el('conv-tbody');
+  var empty = el('conv-empty');
+  if (!rows.length) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = rows.map(convRowHtml).join('');
+}
+
+function filteredConvs() {
+  var q = S.search.toLowerCase();
+  return S.convs.filter(function(c) {
+    if (S.filterStatus !== 'all' && (c.offerStatus || 'visiting') !== S.filterStatus) return false;
+    if (q) return (c.companyName || 'anonymous').toLowerCase().indexOf(q) > -1;
+    return true;
+  }).sort(function(a, b) {
+    var dir = S.sortDir === 'asc' ? 1 : -1;
+    if (S.sortField === 'companyName') return dir * (a.companyName || 'zzz').localeCompare(b.companyName || 'zzz');
+    if (S.sortField === 'messageCount') return dir * ((a.messageCount || 0) - (b.messageCount || 0));
+    return dir * (new Date(a[S.sortField] || 0) - new Date(b[S.sortField] || 0));
+  });
+}
+
+function updateSortArrows() {
+  ['companyName','firstContact','lastContact','messageCount'].forEach(function(f) {
+    var sp = el('sa-' + f); if (!sp) return;
+    sp.textContent = f === S.sortField ? (S.sortDir === 'asc' ? '↑' : '↓') : '↕';
+    sp.className   = 'sa' + (f === S.sortField ? ' on' : '');
+  });
+}
+
+function convRowHtml(c) {
+  var status = c.offerStatus || 'visiting';
+  return '<tr>' +
+    '<td><strong>' + esc(c.companyName || 'Anonymous') + '</strong></td>' +
+    '<td>' + fmtDate(c.firstContact) + '</td>' +
+    '<td>' + fmtDate(c.lastContact)  + '</td>' +
+    '<td style="text-align:center">' + (c.messageCount || 0) + '</td>' +
+    '<td>' + sBadge(status) + '</td>' +
+    '<td><button class="btn-sm btn-secondary-sm" onclick="openTranscript(' +
+      JSON.stringify(c.recruiterId) + ',' +
+      JSON.stringify(c.companyName || 'Anonymous') + ',' +
+      JSON.stringify(c.firstContact || null) + ',' +
+      JSON.stringify(c.lastContact  || null) +
+    ')">View</button></td>' +
+    '</tr>';
+}
+
+// ── Offers ────────────────────────────────────────────────────────────────────
+function renderOffers() {
+  if (!S.offers.length) {
+    html('offers-container',
+      '<div class="empty-wrap"><div class="empty-icon">🤝</div>' +
+      '<p>No offers or salary mentions yet.<br>' +
+      '<a href="' + esc((S.profile && S.profile.shareableUrl) || '#') +
+      '" target="_blank" rel="noopener">Share your link</a> to get started!</p></div>'
+    );
+    return;
+  }
+  html('offers-container', '<div class="offers-grid">' + S.offers.map(offerCardHtml).join('') + '</div>');
+}
+
+function offerCardHtml(o) {
+  var status = o.offerStatus || 'offered';
+  var sal    = fmtSal(o.targetSalary || (S.profile && S.profile.targetSalary));
+  return '<div class="offer-card ' + esc(status) + '">' +
+    '<div class="offer-company">' + esc(o.companyName || 'Unknown Company') + '</div>' +
+    '<div class="offer-date">Last contact: ' + fmtDate(o.lastContact) + '</div>' +
+    '<div>' + sBadge(status) + '</div>' +
+    (sal ? '<div class="offer-target" style="margin-top:10px">Your target: <strong>' + esc(sal) + '</strong></div>' : '') +
+    '<div class="offer-footer">' +
+      '<button class="btn-sm btn-secondary-sm" onclick="openTranscript(' +
+        JSON.stringify(o.recruiterId) + ',' +
+        JSON.stringify(o.companyName || 'Unknown') + ',null,null' +
+      ')">View Conversation</button>' +
+    '</div>' +
+    '</div>';
+}
+
+// ── Profile tab ───────────────────────────────────────────────────────────────
+function renderProfileTab() {
+  var p = S.profile; if (!p) return;
+  var avail  = p.availability || 'open';
+  var sal    = fmtSal(p.targetSalary);
+  var roles  = (p.targetRoles    || []).map(function(r) { return '<span class="pill">' + esc(r) + '</span>'; }).join('');
+  var nn     = (p.nonNegotiables || []).map(function(n) { return '<span class="pill" style="background:var(--green-50);color:var(--green-600);border:1px solid #bbf7d0">✓ ' + esc(n) + '</span>'; }).join('');
+
+  html('profile-full',
+    '<div class="profile-name">' + esc(p.name || '—') + '</div>' +
+    '<div class="profile-meta">' + esc(p.email || '') + (p.location ? ' · ' + esc(p.location) : '') + '</div>' +
+    '<div style="margin:12px 0">' + availBadge(avail) + '</div>' +
+    (sal   ? '<p style="font-size:.88rem;margin-bottom:12px">Target Salary: <strong>' + esc(sal) + '</strong></p>' : '') +
+    (roles ? '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--gray-400);margin-bottom:7px">Target Roles</p><div class="profile-role-pills" style="margin-bottom:14px">' + roles + '</div>' : '') +
+    (nn    ? '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--gray-400);margin-bottom:7px">Non-Negotiables</p><div class="profile-role-pills" style="margin-bottom:14px">' + nn + '</div>' : '') +
+    '<p style="font-size:.78rem;color:var(--gray-400);margin-bottom:10px">Member since ' + fmtDate(p.createdAt) + '</p>' +
+    '<div class="url-bar"><span>' + esc(p.shareableUrl || '') + '</span>' +
+      '<button class="btn-sm btn-secondary-sm" id="pf-copy" onclick="copyLink(\'pf-copy\')">Copy Link</button>' +
+    '</div>' +
+    '<div class="action-row" style="margin-top:10px">' +
+      '<button class="btn-sm btn-secondary-sm" onclick="shareLinkedIn()">💼 Share on LinkedIn</button>' +
+      '<button class="btn-sm btn-secondary-sm" onclick="window.print()">🖨 Download PDF</button>' +
+    '</div>'
+  );
+
+  buildEditForm();
+}
+
+function buildEditForm() {
+  var p = S.profile;
+  var NN_PRESETS = ['Remote only','Growth opportunity','Specific salary floor','Mentorship from senior leader','Small team','Equity / stock options'];
+  var currentNN  = p.nonNegotiables || [];
+
+  var checkboxes = NN_PRESETS.map(function(label) {
+    var checked = currentNN.indexOf(label) > -1 ? ' checked' : '';
+    return '<label class="check-item">' +
+      '<input type="checkbox" class="nn-cb" data-label="' + esc(label) + '"' + checked + '/>' +
+      '<span>' + esc(label) + '</span></label>';
+  }).join('');
+
+  // Custom non-negotiables (those not in presets)
+  var customNn = currentNN.filter(function(n) { return NN_PRESETS.indexOf(n) === -1; }).join(', ');
+
+  html('edit-form',
+    '<div class="frow">' +
+      '<label for="ef-loc">Location</label>' +
+      '<input type="text" id="ef-loc" value="' + esc(p.location || '') + '" placeholder="New York, NY"/>' +
+    '</div>' +
+    '<div class="frow">' +
+      '<label for="ef-roles">Target Roles</label>' +
+      '<input type="text" id="ef-roles" value="' + esc((p.targetRoles || []).join(', ')) + '" placeholder="Senior PM, Product Lead"/>' +
+      '<div class="hint">Separate with commas</div>' +
+    '</div>' +
+    '<div class="frow">' +
+      '<label>Target Salary Range</label>' +
+      '<div class="sal-row">' +
+        '<div><label style="font-weight:400;font-size:.78rem;color:var(--gray-500)" for="ef-smin">Minimum ($)</label>' +
+          '<input type="number" id="ef-smin" value="' + ((p.targetSalary && p.targetSalary.min) || '') + '" placeholder="150000" min="0"/></div>' +
+        '<div><label style="font-weight:400;font-size:.78rem;color:var(--gray-500)" for="ef-smax">Maximum ($)</label>' +
+          '<input type="number" id="ef-smax" value="' + ((p.targetSalary && p.targetSalary.max) || '') + '" placeholder="180000" min="0"/></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="frow">' +
+      '<label>Non-Negotiables</label>' +
+      '<div class="checkbox-grid">' + checkboxes + '</div>' +
+      '<label for="ef-cusnn" style="font-weight:400;font-size:.81rem;color:var(--gray-500);margin-top:2px">Custom non-negotiable</label>' +
+      '<input type="text" id="ef-cusnn" value="' + esc(customNn) + '" placeholder="e.g. 4-day work week"/>' +
+    '</div>' +
+    '<div class="frow">' +
+      '<label for="ef-avail">Availability Status</label>' +
+      '<select id="ef-avail">' +
+        mkOpt('open',         'Open to Opportunities',   p.availability) +
+        mkOpt('interviewing', 'Actively Interviewing',    p.availability) +
+        mkOpt('closed',       'Not Available Right Now',  p.availability) +
+      '</select>' +
+    '</div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+      '<button class="btn-sm btn-primary-sm" id="save-btn" onclick="saveProfile()">Save Changes</button>' +
+      '<button class="btn-sm btn-secondary-sm" onclick="buildEditForm()">Reset</button>' +
+    '</div>'
+  );
+}
+
+function saveProfile() {
+  var loc     = (v('ef-loc')   || '').trim();
+  var rolesRaw= (v('ef-roles') || '').trim();
+  var sminRaw = v('ef-smin');
+  var smaxRaw = v('ef-smax');
+  var cusnn   = (v('ef-cusnn') || '').trim();
+  var avail   = v('ef-avail');
+
+  var roles  = rolesRaw ? rolesRaw.split(',').map(function(r) { return r.trim(); }).filter(Boolean) : [];
+  var smin   = sminRaw ? parseInt(sminRaw, 10) : null;
+  var smax   = smaxRaw ? parseInt(smaxRaw, 10) : null;
+  if (sminRaw && isNaN(smin)) { showEA('Minimum salary must be a number.', 'err'); return; }
+  if (smaxRaw && isNaN(smax)) { showEA('Maximum salary must be a number.', 'err'); return; }
+  if (smin && smax && smin > smax) { showEA('Minimum salary cannot exceed maximum.', 'err'); return; }
+
+  // Collect non-negotiables: checked presets + custom
+  var nn = Array.from(document.querySelectorAll('.nn-cb:checked')).map(function(cb) { return cb.dataset.label; });
+  if (cusnn) { cusnn.split(',').forEach(function(n) { var t = n.trim(); if (t && nn.indexOf(t) === -1) nn.push(t); }); }
+
+  var btn = el('save-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  fetch(withPw(apiBase()), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ location: loc, targetRoles: roles, nonNegotiables: nn, targetSalary: { min: smin, max: smax }, availability: avail }),
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) return Promise.reject(d); return d; }); })
+  .then(function(upd) {
+    S.profile = upd;
+    showEA('Profile updated successfully!', 'ok');
+    renderAll();
+  })
+  .catch(function(e) {
+    showEA((e && e.error) ? e.error : 'Save failed — please try again.', 'err');
+    btn.disabled = false; btn.textContent = 'Save Changes';
+  });
+}
+function showEA(msg, type) {
+  var a = el('edit-alert'); a.textContent = msg;
+  a.className = 'alert alert-' + type + ' visible';
+  setTimeout(function() { a.classList.remove('visible'); }, 4500);
+}
+
+// ── Settings tab ──────────────────────────────────────────────────────────────
+function renderSettings() {
+  var shareUrl = (S.profile && S.profile.shareableUrl) || '';
+  html('settings-body',
+    '<div class="frow"><label>Candidate ID</label>' +
+      '<div class="url-bar"><span>' + esc(S.cid) + '</span>' +
+        '<button class="btn-sm btn-secondary-sm" id="st-cid" onclick="copyText(\'' + esc(S.cid) + '\',\'st-cid\',\'Copy\')">Copy</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="frow"><label>Shareable URL</label>' +
+      '<div class="url-bar"><span>' + esc(shareUrl) + '</span>' +
+        '<button class="btn-sm btn-secondary-sm" id="st-url" onclick="copyLink(\'st-url\')">Copy</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="frow" style="margin-top:22px;padding-top:18px;border-top:1px solid var(--gray-100)">' +
+      '<label>Dashboard Password</label>' +
+      '<p style="font-size:.82rem;color:var(--gray-500)">Managed via the <code style="background:var(--gray-100);padding:2px 5px;border-radius:4px">CANDIDATE_PASSWORD</code> server environment variable.</p>' +
+    '</div>' +
+    '<div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--gray-100)">' +
+      '<button class="btn-sm btn-danger-sm" onclick="logout()">🚪 Sign Out</button>' +
+    '</div>'
+  );
+}
+
+// ── Transcript modal ──────────────────────────────────────────────────────────
+function openTranscript(rid, company, firstContact, lastContact) {
+  txt('tx-title', 'Conversation — ' + (company || 'Recruiter'));
+  var parts = [];
+  if (firstContact) parts.push('First: ' + fmtDate(firstContact));
+  if (lastContact)  parts.push('Last: '  + fmtDate(lastContact));
+  txt('tx-meta', parts.join(' · '));
+  html('tx-msgs', '');
+  el('tx-loading').style.display = '';
+  openModal('modal-tx');
+
+  fetch(withPw(apiBase() + '/conversations/' + encodeURIComponent(rid)))
+    .then(function(res) { return res.json().then(function(d) { if (!res.ok) return Promise.reject(d); return d; }); })
+    .then(function(msgs) {
+      el('tx-loading').style.display = 'none';
+      if (!msgs || !msgs.length) {
+        html('tx-msgs', '<div class="empty-wrap"><p>No messages in this conversation yet.</p></div>');
+        return;
+      }
+      html('tx-msgs', msgs.map(function(m) {
+        var agent = m.role === 'agent';
+        return '<div>' +
+          '<div class="tx-msg ' + esc(m.role) + '">' + esc(m.content) + '</div>' +
+          '<div class="tx-time' + (agent ? '' : ' r') + '">' + fmtDT(m.timestamp) + '</div>' +
+          '</div>';
+      }).join(''));
+    })
+    .catch(function() {
+      el('tx-loading').style.display = 'none';
+      html('tx-msgs', '<div class="empty-wrap"><p>Could not load transcript.</p></div>');
+    });
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+function openModal(id)  { var m = el(id); if (m) { m.classList.add('open');    document.body.style.overflow = 'hidden'; } }
+function closeModal(id) { var m = el(id); if (m) { m.classList.remove('open'); document.body.style.overflow = '';       } }
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  document.querySelectorAll('.modal-overlay.open').forEach(function(m) { m.classList.remove('open'); });
+  document.body.style.overflow = '';
+});
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function showTab(name) {
+  ['overview','conversations','offers','profile','settings'].forEach(function(t) {
+    el('tab-' + t).style.display     = t === name ? '' : 'none';
+    el('tbtn-' + t).classList.toggle('active', t === name);
+  });
+  S.activeTab = name;
+}
+
+// ── Table controls ────────────────────────────────────────────────────────────
+function onSearch(q)         { S.search = q; renderConvTable(); }
+function onFilterStatus(val) { S.filterStatus = val; renderConvTable(); }
+function onSortChange(field) { if (S.sortField === field) { S.sortDir = S.sortDir === 'asc' ? 'desc' : 'asc'; } else { S.sortField = field; S.sortDir = 'desc'; } renderConvTable(); }
+function toggleSort(field)   { onSortChange(field); el('sort-sel').value = field; }
+
+// ── Share helpers ─────────────────────────────────────────────────────────────
+function copyLink(btnId) {
+  var url = (S.profile && S.profile.shareableUrl) || (window.location.origin + '/candidate/' + S.cid);
+  copyText(url, btnId, 'Copy');
+}
+function copyText(text, btnId, origLabel) {
+  var done = function() {
+    var b = el(btnId); if (!b) return;
+    b.textContent = 'Copied!';
+    setTimeout(function() { b.textContent = origLabel; }, 1800);
+  };
+  if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done).catch(function() { fbCopy(text); done(); }); }
+  else { fbCopy(text); done(); }
+}
+function fbCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+}
+function shareLinkedIn() {
+  var url = (S.profile && S.profile.shareableUrl) || ''; if (!url) return;
+  var msg = "I've set up an AI representative to handle recruiter conversations on my behalf. Chat with my AI agent here: " + url;
+  window.open(
+    'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(url) + '&summary=' + encodeURIComponent(msg),
+    '_blank', 'noopener,noreferrer'
+  );
+}
+
+// ── Formatting ────────────────────────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function fmtDT(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+function fmtSal(sal) {
+  if (!sal) return null;
+  var f = function(n) { return n ? '$' + Math.round(n / 1000) + 'k' : null; };
+  var lo = f(sal.min), hi = f(sal.max);
+  if (lo && hi) return lo + '–' + hi;
+  if (lo) return lo + '+';
+  if (hi) return 'Up to ' + hi;
+  return null;
+}
+
+// ── Badge helpers ─────────────────────────────────────────────────────────────
+function sBadge(status) {
+  var L = { visiting:'Visiting', mentioned:'Salary Mentioned', offered:'Offered', negotiating:'Negotiating', accepted:'Accepted', declined:'Declined' };
+  return '<span class="s-badge s--' + esc(status) + '">' + esc(L[status] || status) + '</span>';
+}
+function availBadge(avail) {
+  var I = { open:'🟢', interviewing:'🔵', closed:'⚫' };
+  var L = { open:'Open to Opportunities', interviewing:'Actively Interviewing', closed:'Not Available' };
+  return '<span class="avail-badge avail--' + esc(avail) + '">' + (I[avail] || '') + ' ' + esc(L[avail] || avail) + '</span>';
+}
+function mkOpt(val, label, cur) {
+  return '<option value="' + esc(val) + '"' + (cur === val || (!cur && val === 'open') ? ' selected' : '') + '>' + esc(label) + '</option>';
+}
+
+// ── DOM micro-helpers ─────────────────────────────────────────────────────────
+function el(id)       { return document.getElementById(id); }
+function txt(id, t)   { var e = el(id); if (e) e.textContent = t; }
+function html(id, h)  { var e = el(id); if (e) e.innerHTML   = h; }
+function v(id)        { var e = el(id); return e ? e.value : ''; }
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
