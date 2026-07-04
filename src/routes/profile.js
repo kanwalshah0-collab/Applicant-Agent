@@ -108,6 +108,8 @@ router.post('/create-profile', async (req, res) => {
         ? { min: targetSalary.min ?? null, max: targetSalary.max ?? null }
         : { min: null, max: null };
 
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+
     const { candidateId, shareableUrl } = await storage.createProfile({
       name:           name.trim(),
       email:          email.trim().toLowerCase(),
@@ -119,7 +121,7 @@ router.post('/create-profile', async (req, res) => {
       targetRoles,
       targetSalary:   salary,
       nonNegotiables,
-    });
+    }, baseUrl);
 
     return res.status(201).json({ success: true, candidateId, shareableUrl });
   } catch (err) {

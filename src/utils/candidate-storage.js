@@ -6,7 +6,6 @@ const crypto = require('crypto');
 
 const PROFILES_DIR = path.join(__dirname, '../../data/profiles');
 const CONVERSATIONS_DIR = path.join(__dirname, '../../data/conversations');
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -55,13 +54,14 @@ async function writeJson(filePath, data) {
 /**
  * Creates a new candidate profile and persists it to disk.
  * @param {{ name, email, resume, targetRoles, targetSalary, nonNegotiables, location, strengths }} candidateData
+ * @param {string} baseUrl — origin to build the shareable link from, e.g. "https://myapp.up.railway.app"
  * @returns {{ candidateId: string, shareableUrl: string }}
  */
-async function createProfile(candidateData) {
+async function createProfile(candidateData, baseUrl) {
   await ensureDirectoryExists(PROFILES_DIR);
 
   const candidateId = generateCandidateId();
-  const shareableUrl = `${BASE_URL}/candidate/${candidateId}`;
+  const shareableUrl = `${baseUrl}/candidate/${candidateId}`;
   const now = formatDate();
 
   const profile = {

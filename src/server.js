@@ -16,6 +16,11 @@ const dashboardRouter = require('./routes/dashboard');
 const app  = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
+// Railway (and most PaaS) terminate TLS at an edge proxy and forward plain HTTP
+// internally, setting X-Forwarded-Proto. Trust that header so req.protocol reports
+// "https" correctly — otherwise generated shareable links would say "http://".
+app.set('trust proxy', 1);
+
 // ── Multer ────────────────────────────────────────────────────────────────────
 
 const ALLOWED_MIME_TYPES = new Set([
