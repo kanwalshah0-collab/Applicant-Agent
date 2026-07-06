@@ -130,12 +130,39 @@ async function sendMessage() {
 
 // ── Message rendering ─────────────────────────────────────────────────────────
 
+const URL_PATTERN = /https?:\/\/\S+/;
+
+function appendLinkButton(container, url) {
+  const clean = url.replace(/[.,)\]]+$/, ''); // strip trailing punctuation caught by the URL match
+  const link = document.createElement('a');
+  link.href = clean;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.className = 'chat-link-btn';
+  link.textContent = /calendly\.com/i.test(clean) ? '📅 Schedule a Call' : '🔗 Open Link';
+  container.appendChild(link);
+}
+
 function formatContent(container, text) {
   const lines = text.split('\n');
   let ul = null;
   for (const raw of lines) {
     const line = raw.trimEnd();
     if (!line.trim()) { ul = null; continue; }
+
+    const urlMatch = line.match(URL_PATTERN);
+    if (urlMatch) {
+      ul = null;
+      const before = line.slice(0, urlMatch.index).trim();
+      if (before) {
+        const p = document.createElement('p');
+        p.textContent = before;
+        container.appendChild(p);
+      }
+      appendLinkButton(container, urlMatch[0]);
+      continue;
+    }
+
     if (/^[•\-\*]\s/.test(line.trim())) {
       if (!ul) { ul = document.createElement('ul'); container.appendChild(ul); }
       const li = document.createElement('li');

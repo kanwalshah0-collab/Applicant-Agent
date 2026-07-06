@@ -183,11 +183,20 @@ router.get('/candidate/:candidateId', requireAuth, async (req, res) => {
 
 router.put('/candidate/:candidateId', requireAuth, async (req, res) => {
   try {
-    const { name, email, location, targetRoles, targetSalary, nonNegotiables, availability, workArrangement, hideSalary, professionalSummary, topSkills } = req.body;
+    const { name, email, whatsapp, calendlyLink, location, targetRoles, targetSalary, nonNegotiables, availability, workArrangement, hideSalary, professionalSummary, topSkills } = req.body;
     const updates = {};
 
     if (name        !== undefined) updates.name     = String(name).trim();
     if (location    !== undefined) updates.location = String(location).trim();
+    if (whatsapp    !== undefined) updates.whatsapp = String(whatsapp).trim();
+
+    if (calendlyLink !== undefined) {
+      const trimmed = String(calendlyLink).trim();
+      if (trimmed && !/^https?:\/\/\S+$/i.test(trimmed)) {
+        return res.status(400).json({ error: 'calendlyLink must be a valid URL' });
+      }
+      updates.calendlyLink = trimmed;
+    }
 
     if (professionalSummary !== undefined) {
       const trimmed = String(professionalSummary).trim();

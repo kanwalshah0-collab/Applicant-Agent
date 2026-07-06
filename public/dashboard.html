@@ -797,6 +797,16 @@ function buildEditForm() {
       '<input type="text" id="ef-loc" value="' + esc(p.location || '') + '" placeholder="New York, NY"/>' +
     '</div>' +
     '<div class="frow">' +
+      '<label for="ef-whatsapp">WhatsApp Number</label>' +
+      '<input type="text" id="ef-whatsapp" value="' + esc(p.whatsapp || '') + '" placeholder="+1 555 123 4567"/>' +
+      '<div class="hint">Given to recruiters when your AI representative redirects a question it can\'t answer (e.g. hidden salary details)</div>' +
+    '</div>' +
+    '<div class="frow">' +
+      '<label for="ef-calendly">Calendly Link</label>' +
+      '<input type="text" id="ef-calendly" value="' + esc(p.calendlyLink || '') + '" placeholder="https://calendly.com/you/intro-call"/>' +
+      '<div class="hint">Shared with recruiters who ask to schedule a call</div>' +
+    '</div>' +
+    '<div class="frow">' +
       '<label for="ef-summary">Professional Summary ' +
         '<span title="Max 200 characters" style="cursor:help;color:var(--gray-400);font-weight:400">&#9432;</span>' +
       '</label>' +
@@ -859,6 +869,8 @@ function buildEditForm() {
 
 function saveProfile() {
   var loc     = (v('ef-loc')   || '').trim();
+  var whatsapp = (v('ef-whatsapp') || '').trim();
+  var calendly = (v('ef-calendly') || '').trim();
   var summary = (v('ef-summary') || '').trim();
   var rolesRaw= (v('ef-roles') || '').trim();
   var sminRaw = v('ef-smin');
@@ -891,7 +903,7 @@ function saveProfile() {
   fetch(withPw(apiBase()), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ location: loc, professionalSummary: summary, targetRoles: roles, topSkills: topSkills, nonNegotiables: nn, targetSalary: { min: smin, max: smax }, availability: avail, workArrangement: warr, hideSalary: hideSal }),
+    body: JSON.stringify({ location: loc, whatsapp: whatsapp, calendlyLink: calendly, professionalSummary: summary, targetRoles: roles, topSkills: topSkills, nonNegotiables: nn, targetSalary: { min: smin, max: smax }, availability: avail, workArrangement: warr, hideSalary: hideSal }),
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) return Promise.reject(d); return d; }); })
   .then(function(upd) {

@@ -77,6 +77,8 @@ async function createProfile(candidateData, baseUrl) {
     candidateId,
     name: candidateData.name || '',
     email: candidateData.email || '',
+    whatsapp: candidateData.whatsapp || '',
+    calendlyLink: candidateData.calendlyLink || '',
     resume: candidateData.resume || '',
     strengths: candidateData.strengths || [],
     skills: candidateData.skills || [], // auto-extracted from resume — candidate picks from these to build topSkills

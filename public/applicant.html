@@ -72,6 +72,19 @@
     .msg-body ul { margin: 2px 0 5px 16px; padding: 0; }
     .msg-body ul:last-child { margin-bottom: 0; }
     .msg-body li { margin-bottom: 3px; list-style: disc; line-height: 1.5; }
+    .chat-link-btn {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 9px 18px;
+      background: var(--teal-600);
+      color: #fff;
+      border-radius: 20px;
+      font-size: .87rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity .15s;
+    }
+    .chat-link-btn:hover { opacity: .88; }
 
     /* ── Quick tags bar ── */
     .quick-tags {
@@ -226,9 +239,7 @@ window.INITIAL_GREETING      = '';
       // Set INITIAL_GREETING before loading chat script so init() sees it
       var name = profile.name || 'the candidate';
       window.INITIAL_GREETING =
-        "Hi! I’m " + name + "’s AI representative. I’m here to help you " +
-        "understand why they’d be an excellent fit for your team, and to discuss " +
-        "opportunities that align with their goals. What role are you hiring for?";
+        "Hi, I’m " + name + "’s representative. I can answer questions about their professional experience.";
 
       renderProfile(profile);
 

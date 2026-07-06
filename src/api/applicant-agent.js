@@ -35,23 +35,60 @@ function initializeAgentSystemPrompt(candidateData) {
   const name           = candidateData.name || 'the candidate';
   const email          = candidateData.email || null;
   const phone          = candidateData.phone || null;
+  const whatsapp       = candidateData.whatsapp || null;
+  const calendlyLink   = candidateData.calendlyLink || null;
   const location       = candidateData.location || 'Location not specified';
   const targetRoles    = (candidateData.targetRoles || []).join(', ') || 'open to discussion';
   const nonNegotiables = (candidateData.nonNegotiables || []).join(', ') || 'none specified';
+  const topSkills      = (candidateData.topSkills || []).join(', ') || 'not specified';
+  const hideSalary     = candidateData.hideSalary === true;
   const salaryMin      = candidateData.targetSalary?.min ? `$${candidateData.targetSalary.min.toLocaleString()}` : 'competitive';
   const salaryMax      = candidateData.targetSalary?.max ? `$${candidateData.targetSalary.max.toLocaleString()}` : 'market rate';
   const salaryRange    = `${salaryMin}–${salaryMax}`;
 
+  const WORK_ARRANGEMENT_LABELS = { remote: 'Remote', onsite: 'Onsite', hybrid: 'Hybrid' };
+  const workArrangement = (candidateData.workArrangement || [])
+    .map(w => WORK_ARRANGEMENT_LABELS[w] || w)
+    .join(', ') || 'not specified';
+
+  const AVAILABILITY_LABELS = {
+    open: 'Open to opportunities',
+    interviewing: 'Actively interviewing',
+    closed: 'Not currently available',
+  };
+  const availability = AVAILABILITY_LABELS[candidateData.availability] || 'Open to opportunities';
+
   const resumeText = (candidateData.resume || '').trim() || 'No resume text available.';
 
   const contactParts = [];
-  if (email) contactParts.push(`email: ${email}`);
-  if (phone) contactParts.push(`phone: ${phone}`);
+  if (email)    contactParts.push(`email: ${email}`);
+  if (whatsapp) contactParts.push(`WhatsApp: ${whatsapp}`);
+  if (phone)    contactParts.push(`phone: ${phone}`);
   const contactInfo = contactParts.length
     ? contactParts.join(' or ')
     : 'the contact details on the resume';
 
-  return `You are the AI representative speaking on behalf of ${name}, a job candidate. Answer recruiters STRICTLY from the resume and data below — never invent facts.
+  // Used only for the "I don't know" fallback — prefers email + Calendly specifically.
+  const unknownAnswerParts = [];
+  if (email)        unknownAnswerParts.push(`email: ${email}`);
+  if (calendlyLink) unknownAnswerParts.push(`book time directly: ${calendlyLink}`);
+  const unknownAnswerContact = unknownAnswerParts.length
+    ? unknownAnswerParts.join(' or ')
+    : contactInfo;
+
+  const salaryRule = hideSalary
+    ? `- Salary expectations are CONFIDENTIAL. Never state a number or range, even if asked directly or pressed repeatedly. Respond: "Salary details aren't shared here — please reach out to ${name} directly at ${contactInfo} to discuss compensation."`
+    : `- Push back professionally if salary offered is below ${salaryRange}`;
+
+  const schedulingRule = calendlyLink
+    ? `- ONLY when a recruiter explicitly asks to schedule/book a call, interview, or meeting, respond with something like "You can book time directly here: ${calendlyLink}". Do NOT include this link in greetings, general questions, or any response where scheduling wasn't explicitly requested.`
+    : `- ONLY when a recruiter explicitly asks to schedule/book a call, interview, or meeting, say: "Please reach out to ${name} directly at ${contactInfo} to find a time." Do NOT mention this in any other response.`;
+
+  return `You are an AI representative speaking to recruiters ABOUT ${name}, a job candidate — you are not ${name} and must never impersonate them. Answer recruiters STRICTLY from the resume and data below — never invent facts.
+
+VOICE RULE (always follow):
+- Refer to ${name} in the THIRD PERSON throughout — use "${name}" or "they/their" (e.g., "${name} has experience in...", "Their background includes...", "They led...").
+- NEVER use first-person pronouns ("I", "my", "me") as if you were the candidate. You may use "I" only when speaking as the representative itself (e.g., "I don't have details on that").
 
 FORMATTING RULES (always follow):
 - For skills, tools, or any list: use bullet points starting with "•"
@@ -60,15 +97,19 @@ FORMATTING RULES (always follow):
 - Never write walls of text
 
 STRICT CONTENT RULES:
-- Only state facts explicitly present in RESUME below
+- Read and use ALL of the CANDIDATE DATA below (work arrangement, availability, top skills, non-negotiables, salary) — not just the resume text — before answering
+- Only state facts explicitly present in the CANDIDATE DATA or RESUME below
 - Never say "likely", "probably", or guess at anything
-- If a recruiter asks something NOT answered by the resume or data below, say: "That's not something I have details on — please reach out to ${name} directly at ${contactInfo} for more information."
-- Push back professionally if salary offered is below ${salaryRange}
+- If a recruiter asks something NOT answered by the candidate data or resume below, say: "That's not something I have details on — please reach out to ${name} directly at ${unknownAnswerContact} for more information."
+${salaryRule}
+${schedulingRule}
 - Always finish your sentence / bullet list before stopping
 
 CANDIDATE DATA:
 Name: ${name} | Location: ${location}
-Target roles: ${targetRoles} | Salary range: ${salaryRange}
+Target roles: ${targetRoles}${hideSalary ? '' : ` | Salary range: ${salaryRange}`}
+Work arrangement: ${workArrangement} | Availability: ${availability}
+Top skills: ${topSkills}
 Non-negotiables: ${nonNegotiables}
 
 RESUME (use this as the single source of truth):
