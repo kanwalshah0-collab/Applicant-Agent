@@ -32,6 +32,7 @@ function formatSalary(salary) {
 }
 
 function candidateHeadline(profile) {
+  if (profile.professionalSummary && profile.professionalSummary.trim()) return profile.professionalSummary.trim();
   if (profile.strengths && profile.strengths.length > 0) return profile.strengths[0];
   if (profile.targetRoles && profile.targetRoles.length > 0) {
     return `${profile.seniority || 'Experienced'} ${profile.targetRoles[0]}`;
@@ -328,8 +329,12 @@ router.get('/:candidateId/data', async (req, res) => {
       headline:       candidateHeadline(profile),
       location:       profile.location         || '',
       seniority:      profile.seniority        || 'Experienced',
+      workArrangement: profile.workArrangement || [],
+      topSkills:      profile.topSkills        || [],
       targetRoles:    profile.targetRoles      || [],
-      targetSalary:   profile.targetSalary     || { min: null, max: null },
+      targetSalary:   profile.hideSalary
+        ? { min: null, max: null }
+        : (profile.targetSalary || { min: null, max: null }),
       nonNegotiables: profile.nonNegotiables   || [],
       strengths:      (profile.strengths || []).slice(0, 3),
       shareableUrl:   profile.shareableUrl     || '',

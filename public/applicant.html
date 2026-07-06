@@ -16,20 +16,8 @@
     .meta-row   { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
     .meta-badge { background: var(--gray-100); color: var(--gray-700); border-radius: 20px; padding: 4px 12px; font-size: .82rem; border: 1px solid var(--gray-200); }
     .role-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
-    .cand-url-row { margin-bottom: 0; }
-    .cand-url-row span { font-size: .8rem; }
-
-    /* ── Non-negotiables ── */
-    .nn-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-100); }
-    .nn-label   { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--gray-400); margin-bottom: 8px; }
-    .nn-pills   { display: flex; flex-wrap: wrap; gap: 6px; }
-    .pill--nn   { background: var(--green-50); color: var(--green-600); border: 1px solid #bbf7d0; }
-
-    /* ── About ── */
-    .about-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--teal-600); margin-bottom: 12px; }
-    .achieve-list { padding-left: 18px; margin-bottom: 14px; }
-    .achieve-list li { color: var(--gray-700); font-size: .93rem; margin-bottom: 7px; line-height: 1.5; }
-    .about-cta { font-size: .93rem; color: var(--teal-700); font-weight: 500; }
+    .role-pills:last-of-type { margin-bottom: 0; }
+    .pill--skill { background: #e0f2fe; color: #0369a1; }
 
     /* ── Chat ── */
     .chat-card   { padding: 0; overflow: hidden; }
@@ -165,19 +153,8 @@
       <p  id="cand-headline" class="cand-headline"></p>
       <div id="cand-meta"  class="meta-row"></div>
       <div id="cand-roles" class="role-pills"></div>
-      <div class="url-row cand-url-row">
-        <span id="cand-url"></span>
-        <button class="button-primary" onclick="copyUrl()" aria-label="Copy shareable link">Copy Link</button>
-      </div>
+      <div id="cand-skills" class="role-pills"></div>
     </div>
-
-    <!-- ── Key highlights card ── -->
-    <section class="card" style="margin-bottom:16px">
-      <p class="about-title">Key Highlights</p>
-      <ul class="achieve-list" id="cand-achievements"></ul>
-      <div id="cand-nonneg"></div>
-      <p  id="cand-cta" class="about-cta"></p>
-    </section>
 
     <!-- ── Chat card ── -->
     <section class="card chat-card">
@@ -253,8 +230,6 @@ window.INITIAL_GREETING      = '';
         "understand why they’d be an excellent fit for your team, and to discuss " +
         "opportunities that align with their goals. What role are you hiring for?";
 
-      window._shareableUrl = profile.shareableUrl || window.location.href;
-
       renderProfile(profile);
 
       document.getElementById('loading-state').style.display  = 'none';
@@ -286,6 +261,7 @@ window.INITIAL_GREETING      = '';
     // Meta badges
     var badges = [];
     if (p.location)  badges.push('📍 ' + p.location);
+    workArrangementBadges(p.workArrangement).forEach(function(b) { badges.push(b); });
     if (p.seniority) badges.push('🏅 ' + p.seniority);
     var sal = fmtSalary(p.targetSalary);
     if (sal)         badges.push('💰 ' + sal);
@@ -299,35 +275,14 @@ window.INITIAL_GREETING      = '';
       return '<span class="pill">' + esc(r) + '</span>';
     }).join(''));
 
-    // Shareable URL
-    set('cand-url', p.shareableUrl || window.location.href);
-
-    // Achievements
-    var items = p.strengths && p.strengths.length
-      ? p.strengths
-      : ['Strong track record across multiple roles and projects'];
-    setHtml('cand-achievements', items.map(function(s) {
-      return '<li>' + esc(s) + '</li>';
+    // Top skills
+    var topSkills = (p.topSkills || []).slice(0, 8);
+    setHtml('cand-skills', topSkills.map(function(s) {
+      return '<span class="pill pill--skill">' + esc(s) + '</span>';
     }).join(''));
 
-    // Non-negotiables
-    var nn = p.nonNegotiables || [];
-    if (nn.length) {
-      setHtml('cand-nonneg',
-        '<div class="nn-section">' +
-          '<p class="nn-label">Non-Negotiables</p>' +
-          '<div class="nn-pills">' +
-            nn.slice(0, 6).map(function(n) {
-              return '<span class="pill pill--nn">✓ ' + esc(n) + '</span>';
-            }).join('') +
-          '</div>' +
-        '</div>'
-      );
-    }
-
-    // CTA and chat header
+    // Chat header
     var firstName = (p.name || 'the candidate').split(' ')[0];
-    set('cand-cta', '💬 Interested? Chat with ' + firstName + '’s AI representative below.');
     set('chat-header-label', firstName + '’s AI Representative — online now');
   }
 
@@ -353,6 +308,10 @@ window.INITIAL_GREETING      = '';
       .replace(/&/g,'&amp;').replace(/</g,'&lt;')
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+  function workArrangementBadges(list) {
+    var LABELS = { remote: '🌐 Remote', onsite: '🏢 Onsite', hybrid: '🔁 Hybrid' };
+    return (list || []).map(function(w) { return LABELS[w]; }).filter(Boolean);
+  }
   function fmtSalary(sal) {
     if (!sal) return null;
     var f = function(n) { return n ? '$' + Math.round(n / 1000) + 'k' : null; };
@@ -363,25 +322,6 @@ window.INITIAL_GREETING      = '';
     return null;
   }
 }());
-
-// ── copyUrl — available before chat script loads ─────────────────────────────
-function copyUrl() {
-  var url = window._shareableUrl || window.location.href;
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(url).catch(function() { fbCopy(url); });
-  } else {
-    fbCopy(url);
-  }
-}
-function fbCopy(text) {
-  var ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.cssText = 'position:fixed;opacity:0';
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand('copy');
-  document.body.removeChild(ta);
-}
 </script>
 </body>
 </html>

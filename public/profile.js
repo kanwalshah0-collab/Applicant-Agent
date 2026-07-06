@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Checkbox highlight sync
-  document.querySelectorAll('.nn-checkbox').forEach(cb => {
+  document.querySelectorAll('.nn-checkbox, .wa-checkbox').forEach(cb => {
     cb.addEventListener('change', () => {
       cb.closest('.check-item').classList.toggle('checked', cb.checked);
     });
@@ -240,6 +240,9 @@ async function submitProfile() {
     return;
   }
 
+  const workArrangement = [];
+  document.querySelectorAll('.wa-checkbox:checked').forEach(cb => workArrangement.push(cb.dataset.label));
+
   const formData = new FormData();
   formData.append('name',             name);
   formData.append('email',            email);
@@ -247,6 +250,7 @@ async function submitProfile() {
   formData.append('targetRoles',      JSON.stringify(targetRoles));
   formData.append('nonNegotiables',   JSON.stringify(nonNegotiables));
   formData.append('targetSalary',     JSON.stringify({ min: salaryMin, max: salaryMax }));
+  formData.append('workArrangement',  JSON.stringify(workArrangement));
   formData.append('resume',           selectedFile);
 
   setLoading(true);

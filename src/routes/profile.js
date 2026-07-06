@@ -2,9 +2,15 @@
 
 const express      = require('express');
 const fs           = require('fs').promises;
+const path         = require('path');
+const crypto       = require('crypto');
+const multer       = require('multer');
 const router       = express.Router();
 const storage      = require('../utils/candidate-storage');
 const resumeParser = require('../utils/resume-parser');
+
+const VALID_WORK_ARRANGEMENTS = ['remote', 'onsite', 'hybrid'];
+const PROFESSIONAL_SUMMARY_MAX_LENGTH = 200;
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -51,11 +57,12 @@ router.post('/create-profile', async (req, res) => {
     }
 
     // -- JSON fields sent as strings from FormData --
-    let targetRoles, targetSalary, nonNegotiables;
+    let targetRoles, targetSalary, nonNegotiables, workArrangement;
     try {
-      targetRoles    = parseJsonField(req.body.targetRoles,    'targetRoles');
-      targetSalary   = parseJsonField(req.body.targetSalary,   'targetSalary');
-      nonNegotiables = parseJsonField(req.body.nonNegotiables, 'nonNegotiables');
+      targetRoles     = parseJsonField(req.body.targetRoles,     'targetRoles');
+      targetSalary    = parseJsonField(req.body.targetSalary,    'targetSalary');
+      nonNegotiables  = parseJsonField(req.body.nonNegotiables,  'nonNegotiables');
+      workArrangement = parseJsonField(req.body.workArrangement, 'workArrangement') || [];
     } catch (parseErr) {
       return res.status(400).json({ error: parseErr.message });
     }
@@ -65,6 +72,13 @@ router.post('/create-profile', async (req, res) => {
     }
     if (!Array.isArray(nonNegotiables) || nonNegotiables.length === 0) {
       return res.status(400).json({ error: 'nonNegotiables must be a non-empty array' });
+    }
+
+    // -- work arrangement (optional, multi-select) --
+    if (!Array.isArray(workArrangement) || workArrangement.some(w => !VALID_WORK_ARRANGEMENTS.includes(w))) {
+      return res.status(400).json({
+        error: `workArrangement must be an array containing only: ${VALID_WORK_ARRANGEMENTS.join(', ')}`,
+      });
     }
 
     // -- duplicate email check --
@@ -126,6 +140,7 @@ router.post('/create-profile', async (req, res) => {
       targetRoles,
       targetSalary:   salary,
       nonNegotiables,
+      workArrangement,
     }, baseUrl);
 
     return res.status(201).json({ success: true, candidateId, shareableUrl });
@@ -168,11 +183,21 @@ router.get('/candidate/:candidateId', requireAuth, async (req, res) => {
 
 router.put('/candidate/:candidateId', requireAuth, async (req, res) => {
   try {
-    const { name, email, location, targetRoles, targetSalary, nonNegotiables, availability } = req.body;
+    const { name, email, location, targetRoles, targetSalary, nonNegotiables, availability, workArrangement, hideSalary, professionalSummary, topSkills } = req.body;
     const updates = {};
 
     if (name        !== undefined) updates.name     = String(name).trim();
     if (location    !== undefined) updates.location = String(location).trim();
+
+    if (professionalSummary !== undefined) {
+      const trimmed = String(professionalSummary).trim();
+      if (trimmed.length > PROFESSIONAL_SUMMARY_MAX_LENGTH) {
+        return res.status(400).json({
+          error: `professionalSummary must be ${PROFESSIONAL_SUMMARY_MAX_LENGTH} characters or fewer`,
+        });
+      }
+      updates.professionalSummary = trimmed;
+    }
 
     if (email !== undefined) {
       const trimmed = String(email).trim().toLowerCase();
@@ -196,6 +221,13 @@ router.put('/candidate/:candidateId', requireAuth, async (req, res) => {
       updates.nonNegotiables = nonNegotiables;
     }
 
+    if (topSkills !== undefined) {
+      if (!Array.isArray(topSkills) || topSkills.some(s => typeof s !== 'string')) {
+        return res.status(400).json({ error: 'topSkills must be an array of strings' });
+      }
+      updates.topSkills = topSkills.map(s => s.trim()).filter(Boolean);
+    }
+
     if (targetSalary !== undefined) {
       if (typeof targetSalary !== 'object' || targetSalary === null) {
         return res.status(400).json({ error: 'targetSalary must be an object with min and max' });
@@ -214,6 +246,22 @@ router.put('/candidate/:candidateId', requireAuth, async (req, res) => {
         });
       }
       updates.availability = availability;
+    }
+
+    if (workArrangement !== undefined) {
+      if (!Array.isArray(workArrangement) || workArrangement.some(w => !VALID_WORK_ARRANGEMENTS.includes(w))) {
+        return res.status(400).json({
+          error: `workArrangement must be an array containing only: ${VALID_WORK_ARRANGEMENTS.join(', ')}`,
+        });
+      }
+      updates.workArrangement = workArrangement;
+    }
+
+    if (hideSalary !== undefined) {
+      if (typeof hideSalary !== 'boolean') {
+        return res.status(400).json({ error: 'hideSalary must be a boolean' });
+      }
+      updates.hideSalary = hideSalary;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -286,6 +334,137 @@ router.get('/candidate/:candidateId/offers', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('GET /candidate/:candidateId/offers error:', err);
     return res.status(500).json({ error: 'Failed to retrieve offers' });
+  }
+});
+
+// ── Additional documents (candidate-only — never exposed to recruiters) ──────
+
+const DOC_ALLOWED_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'image/png',
+  'image/jpeg',
+]);
+
+const docStorage = multer.diskStorage({
+  destination: async (req, _file, cb) => {
+    try {
+      const dir = storage.documentDir(req.params.candidateId);
+      await fs.mkdir(dir, { recursive: true });
+      cb(null, dir);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, crypto.randomBytes(8).toString('hex') + ext);
+  },
+});
+
+const uploadDoc = multer({
+  storage: docStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB, consistent with resume limit
+  fileFilter(_req, file, cb) {
+    if (DOC_ALLOWED_MIME_TYPES.has(file.mimetype)) return cb(null, true);
+    cb(new Error('Document must be a PDF, DOC, DOCX, PNG, or JPG file'));
+  },
+});
+
+// ── POST /api/profile/candidate/:candidateId/documents ───────────────────────
+
+router.post(
+  '/candidate/:candidateId/documents',
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      await storage.getProfile(req.params.candidateId);
+      next();
+    } catch {
+      return res.status(404).json({ error: 'Candidate not found' });
+    }
+  },
+  (req, res, next) => {
+    uploadDoc.single('document')(req, res, err => {
+      if (!err) return next();
+      const status = err instanceof multer.MulterError ? 400
+        : err.message.includes('must be a PDF') ? 400
+        : 500;
+      return res.status(status).json({ error: err.message });
+    });
+  },
+  async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'document file is required' });
+      const entry = await storage.addDocument(req.params.candidateId, {
+        id: req.file.filename,
+        originalName: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+      });
+      return res.status(201).json(entry);
+    } catch (err) {
+      console.error('POST .../documents error:', err);
+      return res.status(500).json({ error: 'Failed to save document' });
+    }
+  }
+);
+
+// ── GET /api/profile/candidate/:candidateId/documents ────────────────────────
+
+router.get('/candidate/:candidateId/documents', requireAuth, async (req, res) => {
+  try {
+    const profile = await storage.getProfile(req.params.candidateId);
+    return res.json(profile.additionalDocuments || []);
+  } catch (err) {
+    if (err.message.includes('not found')) {
+      return res.status(404).json({ error: err.message });
+    }
+    console.error('GET .../documents error:', err);
+    return res.status(500).json({ error: 'Failed to retrieve documents' });
+  }
+});
+
+// ── GET /api/profile/candidate/:candidateId/documents/:documentId (download) ─
+
+router.get('/candidate/:candidateId/documents/:documentId', requireAuth, async (req, res) => {
+  const { candidateId, documentId } = req.params;
+  try {
+    const doc = await storage.getDocument(candidateId, documentId);
+    if (!doc) return res.status(404).json({ error: 'Document not found' });
+
+    const filePath = storage.documentFilePath(candidateId, documentId);
+    res.download(filePath, doc.originalName, err => {
+      if (err && !res.headersSent) {
+        console.error('GET .../documents/:id download error:', err);
+        res.status(err.code === 'ENOENT' ? 404 : 500).json({ error: 'File could not be downloaded' });
+      }
+    });
+  } catch (err) {
+    if (err.message.includes('not found')) {
+      return res.status(404).json({ error: err.message });
+    }
+    console.error('GET .../documents/:id error:', err);
+    return res.status(500).json({ error: 'Failed to retrieve document' });
+  }
+});
+
+// ── DELETE /api/profile/candidate/:candidateId/documents/:documentId ─────────
+
+router.delete('/candidate/:candidateId/documents/:documentId', requireAuth, async (req, res) => {
+  const { candidateId, documentId } = req.params;
+  try {
+    const doc = await storage.getDocument(candidateId, documentId);
+    if (!doc) return res.status(404).json({ error: 'Document not found' });
+    await storage.removeDocument(candidateId, documentId);
+    return res.json({ success: true });
+  } catch (err) {
+    if (err.message.includes('not found')) {
+      return res.status(404).json({ error: err.message });
+    }
+    console.error('DELETE .../documents/:id error:', err);
+    return res.status(500).json({ error: 'Failed to delete document' });
   }
 });
 

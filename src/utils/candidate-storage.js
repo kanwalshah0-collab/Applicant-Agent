@@ -6,6 +6,7 @@ const crypto = require('crypto');
 
 const PROFILES_DIR = path.join(__dirname, '../../data/profiles');
 const CONVERSATIONS_DIR = path.join(__dirname, '../../data/conversations');
+const DOCUMENTS_DIR = path.join(__dirname, '../../data/documents');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,14 @@ function profilePath(candidateId) {
 
 function conversationPath(candidateId, recruiterId) {
   return path.join(CONVERSATIONS_DIR, candidateId, `${recruiterId}.json`);
+}
+
+function documentDir(candidateId) {
+  return path.join(DOCUMENTS_DIR, candidateId);
+}
+
+function documentFilePath(candidateId, documentId) {
+  return path.join(documentDir(candidateId), documentId);
 }
 
 async function readJson(filePath) {
@@ -70,10 +79,17 @@ async function createProfile(candidateData, baseUrl) {
     email: candidateData.email || '',
     resume: candidateData.resume || '',
     strengths: candidateData.strengths || [],
+    skills: candidateData.skills || [], // auto-extracted from resume — candidate picks from these to build topSkills
+    topSkills: candidateData.topSkills || [], // candidate-curated highlights shown publicly
+    seniority: candidateData.seniority || 'Mid',
     targetRoles: candidateData.targetRoles || [],
     targetSalary: candidateData.targetSalary || { min: null, max: null },
     nonNegotiables: candidateData.nonNegotiables || [],
     location: candidateData.location || '',
+    workArrangement: candidateData.workArrangement || [], // subset of ['remote', 'onsite', 'hybrid']
+    professionalSummary: candidateData.professionalSummary || '',
+    hideSalary: false,
+    additionalDocuments: [],
     createdAt: now,
     shareableUrl,
   };
@@ -108,7 +124,8 @@ async function getProfile(candidateId) {
 async function updateProfile(candidateId, updates) {
   const profile = await getProfile(candidateId);
 
-  const IMMUTABLE = ['candidateId', 'createdAt', 'shareableUrl'];
+  // additionalDocuments is managed exclusively via addDocument/removeDocument below.
+  const IMMUTABLE = ['candidateId', 'createdAt', 'shareableUrl', 'additionalDocuments'];
   const sanitized = Object.fromEntries(
     Object.entries(updates).filter(([key]) => !IMMUTABLE.includes(key))
   );
@@ -116,6 +133,50 @@ async function updateProfile(candidateId, updates) {
   const updated = { ...profile, ...sanitized };
   await writeJson(profilePath(candidateId), updated);
   return updated;
+}
+
+/**
+ * Records an uploaded document's metadata against a candidate's profile.
+ * The physical file must already be written to documentDir(candidateId)/<id> by the caller.
+ * @param {string} candidateId
+ * @param {{ id: string, originalName: string, mimetype: string, size: number }} doc
+ * @returns {Object} the stored document entry
+ */
+async function addDocument(candidateId, doc) {
+  const profile = await getProfile(candidateId);
+  const entry = {
+    id: doc.id,
+    originalName: doc.originalName,
+    mimetype: doc.mimetype,
+    size: doc.size,
+    uploadedAt: formatDate(),
+  };
+  const additionalDocuments = [...(profile.additionalDocuments || []), entry];
+  await writeJson(profilePath(candidateId), { ...profile, additionalDocuments });
+  return entry;
+}
+
+/**
+ * Removes a document's metadata and deletes its file from disk.
+ * @param {string} candidateId
+ * @param {string} documentId
+ */
+async function removeDocument(candidateId, documentId) {
+  const profile = await getProfile(candidateId);
+  const additionalDocuments = (profile.additionalDocuments || []).filter(d => d.id !== documentId);
+  await writeJson(profilePath(candidateId), { ...profile, additionalDocuments });
+  await fs.unlink(documentFilePath(candidateId, documentId)).catch(() => {});
+}
+
+/**
+ * Looks up a single document's metadata for a candidate.
+ * @param {string} candidateId
+ * @param {string} documentId
+ * @returns {Object|null}
+ */
+async function getDocument(candidateId, documentId) {
+  const profile = await getProfile(candidateId);
+  return (profile.additionalDocuments || []).find(d => d.id === documentId) || null;
 }
 
 /**
@@ -326,6 +387,11 @@ module.exports = {
   getAllConversations,
   getCandidateOffers,
   deleteConversation,
+  addDocument,
+  removeDocument,
+  getDocument,
+  documentDir,
+  documentFilePath,
   // exposed for testing
   generateCandidateId,
   ensureDirectoryExists,

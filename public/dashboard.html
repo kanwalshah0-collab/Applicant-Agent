@@ -140,8 +140,9 @@
     .frow       { margin-bottom: 15px; }
     .frow label { display: block; font-size: .82rem; font-weight: 600; color: var(--gray-700); margin-bottom: 5px; }
     .frow input,
-    .frow select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-200); border-radius: 9px; font-size: .87rem; outline: none; transition: border-color .15s; }
-    .frow input:focus, .frow select:focus { border-color: var(--teal-500); }
+    .frow select,
+    .frow textarea { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-200); border-radius: 9px; font-size: .87rem; outline: none; transition: border-color .15s; font-family: inherit; resize: vertical; }
+    .frow input:focus, .frow select:focus, .frow textarea:focus { border-color: var(--teal-500); }
     .frow .hint { font-size: .74rem; color: var(--gray-400); margin-top: 4px; }
     .sal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .frow .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-bottom: 10px; }
@@ -358,6 +359,18 @@
         <div id="edit-alert" class="alert"></div>
         <div id="edit-form"></div>
       </div>
+      <div class="dash-card">
+        <div class="card-title">Additional Documents</div>
+        <p style="font-size:.82rem;color:var(--gray-500);margin-bottom:12px">
+          Portfolio, certifications, or other files. Visible only to you — never shown to recruiters or on your public page.
+        </p>
+        <div id="doc-alert" class="alert"></div>
+        <div id="doc-list"></div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
+          <input type="file" id="doc-file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"/>
+          <button class="btn-sm btn-primary-sm" id="doc-upload-btn" onclick="uploadDocument()">Upload</button>
+        </div>
+      </div>
     </div>
 
     <!-- ─── SETTINGS TAB ─── -->
@@ -400,7 +413,7 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 var S = {
   cid: null, password: null,
-  profile: null, convs: [], offers: [],
+  profile: null, convs: [], offers: [], documents: [],
   activeTab: 'overview',
   search: '', sortField: 'lastContact', sortDir: 'desc', filterStatus: 'all',
 };
@@ -514,9 +527,9 @@ function fetchAll() {
   el('main-content').style.display   = 'none';
   el('loading-screen').style.display = '';
 
-  Promise.all([apiFetch(''), apiFetch('/conversations'), apiFetch('/offers')])
+  Promise.all([apiFetch(''), apiFetch('/conversations'), apiFetch('/offers'), apiFetch('/documents')])
     .then(function(r) {
-      S.profile = r[0]; S.convs = r[1] || []; S.offers = r[2] || [];
+      S.profile = r[0]; S.convs = r[1] || []; S.offers = r[2] || []; S.documents = r[3] || [];
       localStorage.setItem('dash_pw_' + S.cid, S.password);
       el('loading-screen').style.display = 'none';
       renderAll();
@@ -544,6 +557,7 @@ function renderAll() {
   renderConvTable();
   renderOffers();
   renderProfileTab();
+  renderDocuments();
   renderSettings();
 }
 
@@ -580,12 +594,14 @@ function renderProfileSummary() {
   var p = S.profile; if (!p) return;
   var avail  = p.availability || 'open';
   var salStr = fmtSal(p.targetSalary);
+  var warr   = warrLabel(p.workArrangement);
   var roles  = (p.targetRoles || []).slice(0, 4).map(function(r) { return '<span class="pill">' + esc(r) + '</span>'; }).join('');
   html('profile-summary',
     '<div class="profile-name">' + esc(p.name || '—') + '</div>' +
     '<div class="profile-meta">' + esc(p.email || '') + (p.location ? ' · ' + esc(p.location) : '') + '</div>' +
     '<div style="margin-bottom:12px">' + availBadge(avail) + '</div>' +
     (salStr ? '<p style="font-size:.85rem;color:var(--gray-600);margin-bottom:10px">Target: <strong>' + esc(salStr) + '</strong></p>' : '') +
+    (warr   ? '<p style="font-size:.85rem;color:var(--gray-600);margin-bottom:10px">Work Arrangement: <strong>' + esc(warr) + '</strong></p>' : '') +
     (roles  ? '<div class="profile-role-pills">' + roles + '</div>' : '') +
     '<div class="url-bar"><span>' + esc(p.shareableUrl || '') + '</span>' +
       '<button class="btn-sm btn-secondary-sm" id="ps-copy" onclick="copyLink(\'ps-copy\')">Copy</button>' +
@@ -712,7 +728,9 @@ function renderProfileTab() {
   var p = S.profile; if (!p) return;
   var avail  = p.availability || 'open';
   var sal    = fmtSal(p.targetSalary);
+  var warr   = warrLabel(p.workArrangement);
   var roles  = (p.targetRoles    || []).map(function(r) { return '<span class="pill">' + esc(r) + '</span>'; }).join('');
+  var skills = (p.topSkills      || []).map(function(s) { return '<span class="pill" style="background:#e0f2fe;color:#0369a1">' + esc(s) + '</span>'; }).join('');
   var nn     = (p.nonNegotiables || []).map(function(n) { return '<span class="pill" style="background:var(--green-50);color:var(--green-600);border:1px solid #bbf7d0">✓ ' + esc(n) + '</span>'; }).join('');
 
   html('profile-full',
@@ -720,8 +738,10 @@ function renderProfileTab() {
     '<div class="profile-meta">' + esc(p.email || '') + (p.location ? ' · ' + esc(p.location) : '') + '</div>' +
     '<div style="margin:12px 0">' + availBadge(avail) + '</div>' +
     (sal   ? '<p style="font-size:.88rem;margin-bottom:12px">Target Salary: <strong>' + esc(sal) + '</strong></p>' : '') +
-    (roles ? '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--gray-400);margin-bottom:7px">Target Roles</p><div class="profile-role-pills" style="margin-bottom:14px">' + roles + '</div>' : '') +
-    (nn    ? '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--gray-400);margin-bottom:7px">Non-Negotiables</p><div class="profile-role-pills" style="margin-bottom:14px">' + nn + '</div>' : '') +
+    (warr  ? '<p style="font-size:.88rem;margin-bottom:12px">Work Arrangement: <strong>' + esc(warr) + '</strong></p>' : '') +
+    (roles  ? '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--gray-400);margin-bottom:7px">Target Roles</p><div class="profile-role-pills" style="margin-bottom:14px">' + roles + '</div>' : '') +
+    (skills ? '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--gray-400);margin-bottom:7px">Top Skills</p><div class="profile-role-pills" style="margin-bottom:14px">' + skills + '</div>' : '') +
+    (nn     ? '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--gray-400);margin-bottom:7px">Non-Negotiables</p><div class="profile-role-pills" style="margin-bottom:14px">' + nn + '</div>' : '') +
     '<p style="font-size:.78rem;color:var(--gray-400);margin-bottom:10px">Member since ' + fmtDate(p.createdAt) + '</p>' +
     '<div class="url-bar"><span>' + esc(p.shareableUrl || '') + '</span>' +
       '<button class="btn-sm btn-secondary-sm" id="pf-copy" onclick="copyLink(\'pf-copy\')">Copy Link</button>' +
@@ -750,15 +770,51 @@ function buildEditForm() {
   // Custom non-negotiables (those not in presets)
   var customNn = currentNN.filter(function(n) { return NN_PRESETS.indexOf(n) === -1; }).join(', ');
 
+  var WA_OPTIONS = [['remote','Remote'],['onsite','Onsite'],['hybrid','Hybrid']];
+  var currentWA  = p.workArrangement || [];
+  var waCheckboxes = WA_OPTIONS.map(function(pair) {
+    var checked = currentWA.indexOf(pair[0]) > -1 ? ' checked' : '';
+    return '<label class="check-item">' +
+      '<input type="checkbox" class="wa-cb" data-label="' + pair[0] + '"' + checked + '/>' +
+      '<span>' + pair[1] + '</span></label>';
+  }).join('');
+
+  var SKILL_POOL = p.skills || [];
+  var currentTopSkills = p.topSkills || [];
+  var skillCheckboxes = SKILL_POOL.map(function(skill) {
+    var checked = currentTopSkills.indexOf(skill) > -1 ? ' checked' : '';
+    return '<label class="check-item">' +
+      '<input type="checkbox" class="skill-cb" data-label="' + esc(skill) + '"' + checked + '/>' +
+      '<span>' + esc(skill) + '</span></label>';
+  }).join('');
+
+  // Custom top skills (those not detected in the resume-extracted pool)
+  var customSkills = currentTopSkills.filter(function(s) { return SKILL_POOL.indexOf(s) === -1; }).join(', ');
+
   html('edit-form',
     '<div class="frow">' +
       '<label for="ef-loc">Location</label>' +
       '<input type="text" id="ef-loc" value="' + esc(p.location || '') + '" placeholder="New York, NY"/>' +
     '</div>' +
     '<div class="frow">' +
+      '<label for="ef-summary">Professional Summary ' +
+        '<span title="Max 200 characters" style="cursor:help;color:var(--gray-400);font-weight:400">&#9432;</span>' +
+      '</label>' +
+      '<textarea id="ef-summary" rows="3" maxlength="200" placeholder="A one- or two-sentence pitch shown at the top of your public profile">' + esc(p.professionalSummary || '') + '</textarea>' +
+    '</div>' +
+    '<div class="frow">' +
       '<label for="ef-roles">Target Roles</label>' +
       '<input type="text" id="ef-roles" value="' + esc((p.targetRoles || []).join(', ')) + '" placeholder="Senior PM, Product Lead"/>' +
       '<div class="hint">Separate with commas</div>' +
+    '</div>' +
+    '<div class="frow">' +
+      '<label>Top Skills</label>' +
+      (skillCheckboxes
+        ? '<div class="checkbox-grid">' + skillCheckboxes + '</div>'
+        : '<div class="hint" style="margin-bottom:8px">No skills were auto-detected from your resume yet — add some below.</div>') +
+      '<label for="ef-cusskills" style="font-weight:400;font-size:.81rem;color:var(--gray-500);margin-top:2px">Add a skill not listed above</label>' +
+      '<input type="text" id="ef-cusskills" value="' + esc(customSkills) + '" placeholder="e.g. Figma, SQL"/>' +
+      '<div class="hint">Select up to 8 — shown as tags on your public profile</div>' +
     '</div>' +
     '<div class="frow">' +
       '<label>Target Salary Range</label>' +
@@ -774,6 +830,17 @@ function buildEditForm() {
       '<div class="checkbox-grid">' + checkboxes + '</div>' +
       '<label for="ef-cusnn" style="font-weight:400;font-size:.81rem;color:var(--gray-500);margin-top:2px">Custom non-negotiable</label>' +
       '<input type="text" id="ef-cusnn" value="' + esc(customNn) + '" placeholder="e.g. 4-day work week"/>' +
+    '</div>' +
+    '<div class="frow">' +
+      '<label>Work Arrangement</label>' +
+      '<div class="checkbox-grid">' + waCheckboxes + '</div>' +
+    '</div>' +
+    '<div class="frow">' +
+      '<label class="check-item" style="font-weight:400">' +
+        '<input type="checkbox" id="ef-hidesal"' + (p.hideSalary ? ' checked' : '') + '/>' +
+        '<span>Hide salary from recruiters</span>' +
+      '</label>' +
+      '<div class="hint">When on, your target salary range is not shown on your public candidate page.</div>' +
     '</div>' +
     '<div class="frow">' +
       '<label for="ef-avail">Availability Status</label>' +
@@ -792,11 +859,14 @@ function buildEditForm() {
 
 function saveProfile() {
   var loc     = (v('ef-loc')   || '').trim();
+  var summary = (v('ef-summary') || '').trim();
   var rolesRaw= (v('ef-roles') || '').trim();
   var sminRaw = v('ef-smin');
   var smaxRaw = v('ef-smax');
   var cusnn   = (v('ef-cusnn') || '').trim();
+  var cusskills = (v('ef-cusskills') || '').trim();
   var avail   = v('ef-avail');
+  var hideSal = el('ef-hidesal').checked;
 
   var roles  = rolesRaw ? rolesRaw.split(',').map(function(r) { return r.trim(); }).filter(Boolean) : [];
   var smin   = sminRaw ? parseInt(sminRaw, 10) : null;
@@ -809,13 +879,19 @@ function saveProfile() {
   var nn = Array.from(document.querySelectorAll('.nn-cb:checked')).map(function(cb) { return cb.dataset.label; });
   if (cusnn) { cusnn.split(',').forEach(function(n) { var t = n.trim(); if (t && nn.indexOf(t) === -1) nn.push(t); }); }
 
+  var warr = Array.from(document.querySelectorAll('.wa-cb:checked')).map(function(cb) { return cb.dataset.label; });
+
+  // Collect top skills: checked pool items + custom
+  var topSkills = Array.from(document.querySelectorAll('.skill-cb:checked')).map(function(cb) { return cb.dataset.label; });
+  if (cusskills) { cusskills.split(',').forEach(function(s) { var t = s.trim(); if (t && topSkills.indexOf(t) === -1) topSkills.push(t); }); }
+
   var btn = el('save-btn');
   btn.disabled = true; btn.textContent = 'Saving…';
 
   fetch(withPw(apiBase()), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ location: loc, targetRoles: roles, nonNegotiables: nn, targetSalary: { min: smin, max: smax }, availability: avail }),
+    body: JSON.stringify({ location: loc, professionalSummary: summary, targetRoles: roles, topSkills: topSkills, nonNegotiables: nn, targetSalary: { min: smin, max: smax }, availability: avail, workArrangement: warr, hideSalary: hideSal }),
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) return Promise.reject(d); return d; }); })
   .then(function(upd) {
@@ -960,6 +1036,65 @@ function fmtSal(sal) {
   if (lo) return lo + '+';
   if (hi) return 'Up to ' + hi;
   return null;
+}
+function warrLabel(list) {
+  var LABELS = { remote: '🌐 Remote', onsite: '🏢 Onsite', hybrid: '🔁 Hybrid' };
+  var labels = (list || []).map(function(w) { return LABELS[w]; }).filter(Boolean);
+  return labels.length ? labels.join(', ') : null;
+}
+function fmtBytes(n) {
+  if (!n) return '0 KB';
+  var kb = n / 1024;
+  return kb < 1024 ? Math.round(kb) + ' KB' : (kb / 1024).toFixed(1) + ' MB';
+}
+
+// ── Additional documents ──────────────────────────────────────────────────────
+function renderDocuments() {
+  var docs = S.documents || [];
+  if (!docs.length) { html('doc-list', '<p style="font-size:.85rem;color:var(--gray-400)">No documents uploaded yet.</p>'); return; }
+  html('doc-list', docs.map(function(d) {
+    return '<div class="frow" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+      '<div>' +
+        '<a href="' + withPw(apiBase() + '/documents/' + encodeURIComponent(d.id)) + '" style="font-weight:600;font-size:.87rem">' + esc(d.originalName) + '</a>' +
+        '<div style="font-size:.74rem;color:var(--gray-400)">' + fmtBytes(d.size) + ' · ' + fmtDate(d.uploadedAt) + '</div>' +
+      '</div>' +
+      '<button class="btn-sm btn-danger-sm" onclick="deleteDocument(' + JSON.stringify(d.id) + ')">Delete</button>' +
+    '</div>';
+  }).join(''));
+}
+
+function uploadDocument() {
+  var input = el('doc-file');
+  if (!input.files.length) { showDA('Choose a file first.', 'err'); return; }
+  var fd = new FormData();
+  fd.append('document', input.files[0]);
+  var btn = el('doc-upload-btn');
+  btn.disabled = true; btn.textContent = 'Uploading…';
+  apiFetch('/documents', { method: 'POST', body: fd })
+    .then(function() {
+      input.value = '';
+      showDA('Document uploaded.', 'ok');
+      return apiFetch('/documents');
+    })
+    .then(function(docs) { S.documents = docs || []; renderDocuments(); })
+    .catch(function(e) { if (!(e && e.handled)) showDA((e && e.error) ? e.error : 'Upload failed.', 'err'); })
+    .then(function() { btn.disabled = false; btn.textContent = 'Upload'; });
+}
+
+function deleteDocument(id) {
+  apiFetch('/documents/' + encodeURIComponent(id), { method: 'DELETE' })
+    .then(function() {
+      S.documents = (S.documents || []).filter(function(d) { return d.id !== id; });
+      renderDocuments();
+      showDA('Document deleted.', 'ok');
+    })
+    .catch(function(e) { if (!(e && e.handled)) showDA((e && e.error) ? e.error : 'Delete failed.', 'err'); });
+}
+
+function showDA(msg, type) {
+  var a = el('doc-alert'); a.textContent = msg;
+  a.className = 'alert alert-' + type + ' visible';
+  setTimeout(function() { a.classList.remove('visible'); }, 4500);
 }
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
