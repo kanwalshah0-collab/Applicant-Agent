@@ -8,6 +8,7 @@ const multer       = require('multer');
 const router       = express.Router();
 const storage      = require('../utils/candidate-storage');
 const resumeParser = require('../utils/resume-parser');
+const mailer       = require('../utils/email');
 
 const VALID_WORK_ARRANGEMENTS = ['remote', 'onsite', 'hybrid'];
 const PROFESSIONAL_SUMMARY_MAX_LENGTH = 200;
@@ -142,6 +143,15 @@ router.post('/create-profile', async (req, res) => {
       nonNegotiables,
       workArrangement,
     }, baseUrl);
+
+    // Best-effort — a flaky mail server should never block profile creation.
+    mailer.sendWelcomeEmail({
+      to: email.trim().toLowerCase(),
+      name: name.trim(),
+      candidateId,
+      dashboardUrl: `${baseUrl}/dashboard/${candidateId}`,
+      shareableUrl,
+    }).catch(err => console.error('[create-profile] sendWelcomeEmail error:', err));
 
     return res.status(201).json({ success: true, candidateId, shareableUrl });
   } catch (err) {
